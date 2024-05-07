@@ -7,7 +7,7 @@ from pymongo import MongoClient
 import os
 import warnings
 
-from mongoservice import connect_to_MongoDb
+from mongo_service import connect_to_MongoDb
 
 
 # Ignore all warnings

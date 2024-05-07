@@ -1,18 +1,14 @@
 from fastapi import FastAPI, HTTPException, Body, Form, Depends, status,File, UploadFile,Response,Query
 from fastapi.responses import JSONResponse
-
 import uvicorn
 from datetime import datetime
 import uuid
-import pandas as pd
-import numpy as np
 import sys,json,os
 from datetime import datetime
-from pymongo import MongoClient
 
-from mongoservice import connect_to_MongoDb
-from weekly_report_extraction import Weekly_extraction
-from monthly_report_extraction import Monthly_extraction
+from mongo_service import connect_to_MongoDb
+from extraction_service.weekly_report_extraction import Weekly_extraction
+from extraction_service.monthly_report_extraction import Monthly_extraction
 from s3_service.s3_services import AWS_S3_Service 
 
 
@@ -21,11 +17,10 @@ monthly_extraction=Monthly_extraction()
 aws_boto3 = AWS_S3_Service()
 
 db_connection = connect_to_MongoDb()
-files_collection = db_connection["files"]
+db = db_connection.db
+files_collection = db["files"]
 
-app = FastAPI(
-    title='STR Services'
-)
+app = FastAPI(title='STR Services')
 
 @app.post("/upload_file")
 def upload_file(files: list[UploadFile] = File(...)):
