@@ -5,25 +5,29 @@ from datetime import datetime
 import uuid
 import sys,json,os
 from datetime import datetime
+import pandas as pd
+from io import BytesIO
 
 from mongo_service import connect_to_MongoDb
 from extraction_service.weekly_report_extraction import Weekly_extraction
 from extraction_service.monthly_report_extraction import Monthly_extraction
+from extraction_service.toc_extraction import str_report_type
 from s3_service.s3_services import AWS_S3_Service 
 
 
 weekly_extraction = Weekly_extraction()
 monthly_extraction=Monthly_extraction()
 aws_boto3 = AWS_S3_Service()
+report_type = str_report_type()
 
 db_connection = connect_to_MongoDb()
 db = db_connection.db
-files_collection = db["files"]
+
 
 app = FastAPI(title='STR Services')
 
 @app.post("/upload_file")
-def upload_file(files: list[UploadFile] = File(...)):
+def upload_file(files: list[UploadFile] = File(...),corporation: str = Form(...),str_id: str = Form(...)):
     try:
         file_status = []
         for path in files:
@@ -35,26 +39,40 @@ def upload_file(files: list[UploadFile] = File(...)):
 
             mime_type = aws_boto3.get_mime_type(file_extension)
             filedata = {
-                "name": fname,
+                "file_name": fname,
                 "s3_key": unique_filename,
-                "date": _ts,
-                # "status": "Pending",
+                "upload_date": _ts,
                 "delete_status":0,
-                # "temp_corporation_name": corporation,
-                # "temp_str_id":str_id,
-                # "extraction_status":True
+                "corporation": corporation,
+                "str_id":str_id,
             }
-
+           
             if file_extension == '.xlsx' or file_extension == '.xls':
                 content_type = mime_type
                 S3_file_upload = aws_boto3.upload_to_s3_object(file_content,unique_filename,content_type)
-                # print("S3_file_upload------->",S3_file_upload)
-                # print("content_type------->",content_type)
-                files_collection.insert_one(filedata)
+                file_body,contentType = aws_boto3.get_file_obj(unique_filename)
+                xl = pd.ExcelFile(file_body)          
+                sheets = xl.sheet_names
+                report = report_type.check_str_report_type(sheets,xl)
+                if report["response"]["str_type"] == "Weekly STAR Report":
+                    extraction = weekly_extraction.prepare_all_dfs(sheets,xl)
+                    if extraction["status"] == 200:
+                        filedata.update({"report_type":report["response"]["str_type"].split(" ")[0]})
+                        db["Weekly_uploads"].insert_one(filedata)
+                         
+                else:
+                    extraction = monthly_extraction.prepare_all_dfs_monthly(sheets,xl)
+                    if extraction["status"] == 200:
+                        filedata.update({"report_type":report["response"]["str_type"].split(" ")[0]})
+                        db["Monthly_uploads"].insert_one(filedata)
+                
+                file_status.append({'name':fname,'s3_key':unique_filename, 'message':extraction['message'], 'status':extraction['status']})
 
             else:
-                file_status.append({'name':fname, 'message':'Invalid file format. Allowed formats are .xlsx, xls', 'status':500})
-                continue
+                file_status.append({'name':fname,'message':'Invalid file format. Allowed formats are .xlsx, xls only', 'status':500})
+
+        return JSONResponse({"file_status":file_status,"status":200})
+
     except Exception as e:
         return JSONResponse({"messege": str(e),"status":500})
 

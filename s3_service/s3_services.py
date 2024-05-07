@@ -27,7 +27,6 @@ class AWS_S3_Service:
 
     def upload_to_s3_object(self, file_content,unique_filename,content_type):
         try:
-            print("file_content--->",file_content)
             file_content.seek(0)
             self.s3client.upload_fileobj(
                 Fileobj=file_content,
@@ -39,4 +38,19 @@ class AWS_S3_Service:
         except Exception as ex:
             # return JSONResponse({"messege": str(ex)})
             print("errro in upload_to_s3_file due to ", ex)
+
+
+    def get_file_obj(self,s3_key):
+        # print('get_file_obj'  ,s3_key)
+        try:
+            doc_object = self.s3client.get_object(
+                            Bucket=self.S3_BUCKET_NAME, 
+                            Key=s3_key
+                            )
+            
+            doc_content = doc_object['Body'].read()
+            content_type = doc_object['ContentType']
+            return doc_content, content_type
+        except Exception as e: return e
+
        
