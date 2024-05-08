@@ -7,18 +7,23 @@ import sys,json,os
 from datetime import datetime
 import pandas as pd
 from io import BytesIO
+from typing import Dict
+from bson import ObjectId
+
 
 from mongo_service import connect_to_MongoDb
 from extraction_service.weekly_report_extraction import Weekly_extraction
 from extraction_service.monthly_report_extraction import Monthly_extraction
 from extraction_service.toc_extraction import str_report_type
 from s3_service.s3_services import AWS_S3_Service 
+from mongo_service.data_endpoints import APIendpoints
 
 
 weekly_extraction = Weekly_extraction()
 monthly_extraction=Monthly_extraction()
 aws_boto3 = AWS_S3_Service()
 report_type = str_report_type()
+api = APIendpoints()
 
 db_connection = connect_to_MongoDb()
 db = db_connection.db
@@ -76,5 +81,40 @@ def upload_file(files: list[UploadFile] = File(...),corporation: str = Form(...)
     except Exception as e:
         return JSONResponse({"messege": str(e),"status":500})
 
-# if __name__ == "__main__":
-#     uvicorn.run(app, host="127.0.0.1", port=8000)
+
+@app.post('/week')
+def week_data():
+    pass
+
+@app.post('/weekly')
+def weekly_data():
+    pass
+
+@app.post('/month')
+def month_data(data: Dict[str, str] = Body(...)):
+    try:
+        result = api.get_month_data(data)
+        # print(result)
+        return result
+    except Exception as e:
+        return {"error":e,status:500}
+    
+
+@app.post('/monthly')
+def monthly_data(data:Dict[str,str]=Body(...)):
+    try:
+        result = api.get_monthly_data(data)
+        # print(result)
+        return result
+    except Exception as e:
+        return {"error":e,status:500}
+
+@app.post('/year')
+def year_data():
+    pass
+@app.post('/range')
+def range_data():
+    pass
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="127.0.0.1", port=8000)

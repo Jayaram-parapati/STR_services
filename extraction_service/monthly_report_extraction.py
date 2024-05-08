@@ -111,7 +111,7 @@ class Monthly_extraction(connect_to_MongoDb):
                 dfs.append({"sheet": sheet, "index": index, "df": df})
         return dfs
 
-    def prepare_daily_sheet(self,dfo, str_id):
+    def prepare_comp_sheet(self,dfo, str_id):
         global year
         global month
         
@@ -205,7 +205,7 @@ class Monthly_extraction(connect_to_MongoDb):
                             print(e)
                 # print(records)
 
-    def prepare_daily_sheet2(self,dfo, str_id):
+    def prepare_daily_sheet(self,dfo, str_id):
         global year
         df = dfo["df"]
         df.dropna(axis="columns", how="all", inplace=True)
@@ -334,9 +334,9 @@ class Monthly_extraction(connect_to_MongoDb):
                     str_id = self.prepare_toc_sheet(dfo)
               
                 if dfo["sheet"] == "Comp":
-                    self.prepare_daily_sheet(dfo, str_id)
+                    self.prepare_comp_sheet(dfo, str_id)
                 if dfo["sheet"] == "Daily by Month":
-                    self.prepare_daily_sheet2(dfo, str_id)  
+                    self.prepare_daily_sheet(dfo, str_id)  
             return {'message':'Extraction Success', 'status':200}
         except Exception as e:
             return {'message':e, 'status':500}
