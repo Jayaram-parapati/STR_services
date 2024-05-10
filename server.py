@@ -4,7 +4,6 @@ import uvicorn
 from datetime import datetime
 import uuid
 import sys,json,os
-from datetime import datetime
 import pandas as pd
 from io import BytesIO
 from typing import Dict
@@ -36,53 +35,58 @@ def upload_file(files: list[UploadFile] = File(...),corporation: str = Form(...)
     try:
         file_status = []
         for path in files:
-            file_content = path.file
-            fname = path.filename
-            file_name, file_extension = os.path.splitext(fname)
-            _ts = datetime.now()
-            unique_filename = f"{str(uuid.uuid4())}_{fname}"
+            try:
+                file_content = path.file
+                fname = path.filename
+                file_name,file_extension = os.path.splitext(fname)
+                _ts = datetime.now()
+                unique_filename = f"{str(uuid.uuid4())}_{fname}"
+                
+                filedata = {
+                    "file_name": fname,
+                    "s3_key": unique_filename,
+                    "upload_date": _ts,
+                    "delete_status":0,
+                    "corporation": corporation,
+                    "str_id":str_id,
+                }
+            
+                if file_extension == '.xlsx' or file_extension == '.xls':
+                    content_type = aws_boto3.get_mime_type(file_extension)
+                    S3_file_upload = aws_boto3.upload_to_s3_object(file_content,unique_filename,content_type)
 
-            mime_type = aws_boto3.get_mime_type(file_extension)
-            filedata = {
-                "file_name": fname,
-                "s3_key": unique_filename,
-                "upload_date": _ts,
-                "delete_status":0,
-                "corporation": corporation,
-                "str_id":str_id,
-            }
-           
-            if file_extension == '.xlsx' or file_extension == '.xls':
-                content_type = mime_type
-                S3_file_upload = aws_boto3.upload_to_s3_object(file_content,unique_filename,content_type)
-                if S3_file_upload['status']== 200 : 
-                    file_body,contentType = aws_boto3.get_file_obj(unique_filename)
-                    xl = pd.ExcelFile(file_body)  
-                    sheets = xl.sheet_names
-                    report = report_type.check_str_report_type(sheets,xl)
-                    if report["response"]["str_type"] == "Weekly STAR Report":
-                        extraction = weekly_extraction.prepare_all_dfs(sheets,xl)
-                        if extraction["status"] == 200:
-                            filedata.update({"report_type":report["response"]["str_type"].split(" ")[0]})
-                            db["Weekly_uploads"].insert_one(filedata)
-                            
-                    else:
-                        extraction = monthly_extraction.prepare_all_dfs_monthly(sheets,xl)
-                        if extraction["status"] == 200:
-                            filedata.update({"report_type":report["response"]["str_type"].split(" ")[0]})
-                            db["Monthly_uploads"].insert_one(filedata)
-                    
-                    file_status.append({'file_name':fname,'s3_key':unique_filename, 'message':extraction['message'], 'status':extraction['status']})
-                # else:
-                #     file_status.append({"message": S3_file_upload['message'], 'status':500})
-            else:
-                file_status.append({'file_name':fname,'message':'Invalid file format. Allowed formats are .xlsx, xls only', 'status':500})
+                    if S3_file_upload['status']== 200: 
+                        file_body,contentType = aws_boto3.get_file_obj(unique_filename)
+                        xl = pd.ExcelFile(file_body)  
+                        sheets = xl.sheet_names
+                        report = report_type.check_str_report_type(sheets,xl)
+                        if report["response"]["str_type"] == "Weekly STAR Report":
+                            extraction = weekly_extraction.prepare_all_dfs(sheets,xl)
+                            if extraction["status"] == 200:
+                                filedata.update({"report_type":report["response"]["str_type"].split(" ")[0]})
+                                db["Weekly_uploads"].insert_one(filedata)
+                                
+                        elif report["response"]["str_type"] == "Monthly STAR Report":
+                            extraction = monthly_extraction.prepare_all_dfs_monthly(sheets,xl)
+                            if extraction["status"] == 200:
+                                filedata.update({"report_type":report["response"]["str_type"].split(" ")[0]})
+                                db["Monthly_uploads"].insert_one(filedata)
 
-        return JSONResponse({"file_status":file_status,"status":200})
+                        else:
+                            file_status.append({'file_name':fname,'message':'Invalid file', 'status':500})
 
-    except Exception as e:
+                        file_status.append({'file_name':fname,'s3_key':unique_filename, 'message':extraction['message'], 'status':extraction['status']})
+
+                else:
+                    file_status.append({'file_name':fname,'message':'Invalid file format. Allowed formats are .xlsx, xls only', 'status':500})
+            except Exception as ex:
+                file_status.append({'file_name':fname,"exception": str(ex), "message":"invalid file to Extraction",'status':500})
+            
+        return JSONResponse({"file_status":file_status,'status':200})
+
+    except Exception as ex:
         print("error while uploading the file")
-        return JSONResponse({"messege": str(e),"status":500})
+        return JSONResponse({"message": str(ex),'status':500})
 
 
 @app.post('/week')
