@@ -28,9 +28,6 @@ class str_report_type(connect_to_MongoDb):
         strinfo["str_property"] = prop[1].strip()
         return strinfo
 
-
-
-
     def check_str_report_type(self,sheets,xl):
         sheet = sheets[0]
         df = xl.parse(sheet, header=None)

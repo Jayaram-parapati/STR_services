@@ -84,9 +84,9 @@ def upload_file(files: list[UploadFile] = File(...),corporation: str = Form(...)
             
         return JSONResponse({"file_status":file_status,'status':200})
 
-    except Exception as ex:
+    except Exception as e:
         print("error while uploading the file")
-        return JSONResponse({"message": str(ex),'status':500})
+        return JSONResponse({"messege": str(e),"status":500})
 
 
 @app.post('/week')
@@ -116,9 +116,13 @@ def monthly_data(data:Dict[str,str]=Body(...)):
     except Exception as e:
         return {"error":e,status:500}
 
-@app.post('/year')
-def year_data():
-    pass
+@app.post('/yearly')
+def year_data(data:Dict[str,str]=Body(...)):
+    try:
+        result = api.get_yearly_data(data)
+        return result
+    except Exception as e:
+        return {"error":e,status:500}
 @app.post('/range')
 def range_data():
     pass

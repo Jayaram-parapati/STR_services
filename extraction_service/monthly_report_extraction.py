@@ -220,8 +220,8 @@ class Monthly_extraction(connect_to_MongoDb):
                 collection_name = df.iloc[0, 0]
             collection_name = "".join([c for c in collection_name if c.isalpha()]).lower() 
             collection_name = f"{collection_name}_DailyByMonth"
-            # extract daily data, exclude last 3 columns
             
+            # extract daily data, exclude last 3 columns
             df.iloc[[0]] = df.iloc[[0]].ffill(axis=1)
             df_change = df.iloc[2:5, :]
             df_rchange = df.iloc[6:9, :]

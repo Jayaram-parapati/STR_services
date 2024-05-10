@@ -9,12 +9,12 @@ import warnings
 
 from mongo_service import connect_to_MongoDb
 
-
 # Ignore all warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 #! todo: read year from first sheet
 year = 2022
+month = 'Jan'
 weekdays = [
     "Sunday",
     "Monday",
@@ -39,10 +39,16 @@ config = {
     "save_to_db": True,
 }
 
+labels_mapping = {
+    "occupancy_ss":"Index (MPI)",
+    "adr_ss":"Index (ARI)",
+    "revpar_ss":"Index (RGI)"
+}
+
 class Weekly_extraction(connect_to_MongoDb):
     def __init__(self):
         super().__init__()
-               
+                   
     def consecs(self,ll):
         ol = []
         cfound = False
@@ -116,7 +122,7 @@ class Weekly_extraction(connect_to_MongoDb):
         return dfs
 
 
-    def prepare_other_sheet(self,dfo, collection_name, str_id):
+    def prepare_other_sheet_old(self,dfo, collection_name, str_id):
         global year
         # collection_name = "occ_ss"
         if (
@@ -146,7 +152,7 @@ class Weekly_extraction(connect_to_MongoDb):
                 label_name = df.iloc[0, 0]
 
             df.iloc[[0]] = df.iloc[[0]].ffill(axis=1)
-
+            print(df.shape)
             if label_name != "Rank":
                 df_date = df.iloc[:2, :-4]
                 df_sms = df.iloc[-1:, :-4]
@@ -278,18 +284,99 @@ class Weekly_extraction(connect_to_MongoDb):
                     except Exception as e:
                         print(e)
 
+    def prepare_other_sheet(self,dfo, collection_name, str_id):
+        global year
+        # collection_name = "occ_ss"
+        if (
+            collection_name not in self.db.list_collection_names()
+            and config["save_to_db"] == True
+        ):
+            # print(f"Creating Collection {collection_name}")
+            self.db.create_collection(
+                collection_name,
+                timeseries={"timeField": "timestamp", "metaField": "metadata"},
+            )
+            # db[collection_name].create_index(
+            #     [("timestamp", 1), ("metadata.label", -1)], unique=True
+            # )
+        df = dfo["df"]
+        df.replace("Exchange Rate*", np.nan, inplace=True)
+        df.dropna(axis="columns", how="all", inplace=True)
+        df.dropna(axis="rows", how="all", inplace=True)
+        df.reset_index(drop=True, inplace=True)
+        # year = 2023  # todo: read year from somewhere in current sheet or other sheet
+
+        if df.shape[1] >= 28:
+            sub_label_name = df.iloc[0, 0]
+            if pd.isnull(sub_label_name):
+                df.drop(df.head(2).index, axis=0, inplace=True)
+                df.reset_index(drop=True, inplace=True)
+                sub_label_name = df.iloc[0, 0]
+            # sub_label_name = "".join([c for c in sub_label_name if c.isalpha()]).lower()
+
+            df.iloc[[0]] = df.iloc[[0]].ffill(axis=1)
+            df_change = df.iloc[2:,:]
+            df_year_month = df.iloc[0:2,:]
+            coll_name = collection_name.split("_")[0]
+            
+            
+           
+            for r in range(df_change.shape[0]):
+                label_name =df_change.iloc[r,0]
+                if sub_label_name.startswith("Index") and label_name == "Comp Set":
+                    label_name = labels_mapping[collection_name]
+                for c in range(1,df_change.shape[1]):
+                    record={}
+                    record.update({"metadata": {"label": label_name, "str_id": str_id}})
+                    if not pd.isna(df_change.iloc[r,c]):
+                        change = df_change.iloc[r,c]
+                    else: change = 'null'
+                    if sub_label_name.endswith("Chg"):
+                        record.update({"change_rate":change})   
+                    else:record.update({"change":change})
+                    if df_year_month.iloc[0, c] not in ["Current", "Run"]: 
+                        date = f"{year} { df_year_month.iloc[0,c]} {(df_year_month.iloc[1,c])}"
+                        timestamp = datetime.strptime(date.strip(),"%Y %b %d")
+                        record.update({"timestamp":timestamp})
+                    else:
+                        timestamp = week_range[1]
+                        tag_type = f"{df_year_month.iloc[0,c]} {df_year_month.iloc[1,c]}"
+                        record.update({"timestamp":timestamp,"tag_type":tag_type,"week_range":week_range})
+                    try:
+                        if config["save_to_db"] == True:
+                            q = {"timestamp":{"$eq":record['timestamp']},
+                                "metadata.str_id":str_id,
+                                "metadata.label":label_name,
+                                "tag_type":{"$exists":False}}
+                            if 'tag_type' in record:
+                                q.update({'tag_type':record['tag_type']})
+                            if label_name not in ["Market Scale","Occ % Chg","ADR % Chg","RevPAR % Chg"]:
+                                collection = coll_name
+                            else:
+                                collection = collection_name
+                                    
+                            match_obj = self.db[collection].find_one(q)
+                            if match_obj:
+                                if 'change' in match_obj and 'change_rate' in match_obj:
+                                    continue
+                                if 'change' in match_obj and 'change_rate' not in match_obj:
+                                    match_obj.update({"change_rate":record["change_rate"]})
+                                if 'change'  not in match_obj and 'change_rate' in match_obj:
+                                    match_obj.update({"change":record["change"]})   
+                                self.db[collection].delete_one({"_id":match_obj["_id"]})
+                                match_obj.pop("_id") 
+                                self.db[collection].insert_one(match_obj)    
+                            else:self.db[collection].insert_one(record)                           
+                    except Exception as e:
+                        print(e)   
+                
     def prepare_daily_sheet(self,dfo, str_id):
         global year
         df = dfo["df"]
         df.dropna(axis="columns", how="all", inplace=True)
         df.dropna(axis="rows", how="all", inplace=True)
         df.reset_index(drop=True, inplace=True)
-        # year = 2023
-        # if df.shape[0] < 9:
-        # datestr = df.iloc[0, 0]
-        # datestr = datestr.split(",")
-        # year = datestr[len(datestr) - 1].strip()
-        # print(year)
+        
         if df.shape[0] >= 9:
             collection_name = df.iloc[0, 0]
             if pd.isnull(collection_name):
@@ -299,20 +386,11 @@ class Weekly_extraction(connect_to_MongoDb):
             collection_name = "".join([c for c in collection_name if c.isalpha()]).lower()
 
             # extract daily data, exclude last 3 columns
+            df.iloc[[0]] = df.iloc[[0]].ffill(axis=1)
             df_change = df.iloc[2:5, :-3]
             df_rchange = df.iloc[6:9, :-3]
 
-            # generate dates
-            month_name = df.iloc[0, 1]
-            # print(month_name)
-            dates = [
-                datetime.strptime(f"{month_name} 1, {year}", "%b %d, %Y").isoformat(),
-                datetime.strptime(
-                    f"{month_name} {df_change.shape[1]-1}, {year}", "%b %d, %Y"
-                ).isoformat(),
-            ]
-            alldates = pd.date_range(dates[0], dates[1], freq="d")
-            # print(alldates)
+            
 
             # shapes should match
             if df_change.shape == df_rchange.shape:
@@ -343,27 +421,30 @@ class Weekly_extraction(connect_to_MongoDb):
                     for d in range(1, df_change.shape[1]):
                         if not pd.isna(df_change.iloc[r, d]):
                             change = df_change.iloc[r, d]
-                        else:change = 0 
+                        else:change = 'null' 
                         if not pd.isna(df_rchange.iloc[r, d]):
                             change_rate = df_rchange.iloc[r, d]
-                        else:change_rate = 0
+                        else:change_rate = 'null'
+                        date = f"{year} {df.iloc[0,d]} {(df.iloc[1,d])}"
+                        timestamp_obj = datetime.strptime(date.strip(),"%Y %b %d")
                         record = {
                             "metadata": {"label": label_name, "str_id": str_id},
-                            # "timestamp": dates[d - 1].strftime("%Y-%m-%dT%H:%M:%S.000Z"),
-                            "timestamp": alldates[d - 1],
+                            "timestamp": timestamp_obj,
                             "change": change,
                             "change_rate": change_rate,
                         }
                         # print(record)
                         try:
                             if config["save_to_db"] == True:
-                                if record["change"] != 0:
-                                    ts = record["timestamp"]
-                                    ts_obj = datetime(ts.year, ts.month, ts.day, ts.hour, ts.minute, ts.second)
-                                    q = {"timestamp":{"$eq":ts_obj},"metadata.str_id":str_id,"metadata.label":label_name}
+                                if record["change"] != 'null':
+                                    q = {"timestamp":{"$eq":record['timestamp']},
+                                    "metadata.str_id":str_id,
+                                    "metadata.label":label_name}
                                     match_obj = self.db[collection_name].find_one(q)
-                                    if not match_obj:
-                                        self.db[collection_name].insert_one(record)                           
+                                    if match_obj:
+                                        self.db[collection_name].delete_one({"_id":match_obj["_id"]}) 
+                                        self.db[collection_name].insert_one(record)
+                                    else:self.db[collection_name].insert_one(record)                           
                         except Exception as e:
                             print(e)
 
@@ -431,5 +512,9 @@ class Weekly_extraction(connect_to_MongoDb):
             return {'message':e, 'status':500}
     
 
+# file_name = 'D:\Jayaram\python\strApp\str reports\STR Sample Data\Weekly\Weekly STAR for Sunday Apr 2, 2023 to Saturday Apr 8, 2023 (Part 1)(1)\ATLBU-20230402-USD-E.xlsx'
 
-
+# xl = pd.ExcelFile(file_name)  
+# sheets = xl.sheet_names
+# weekly_extraction = Weekly_extraction()
+# weekly_extraction.prepare_all_dfs(sheets,xl)    
