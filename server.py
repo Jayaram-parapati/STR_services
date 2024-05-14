@@ -90,12 +90,20 @@ def upload_file(files: list[UploadFile] = File(...),corporation: str = Form(...)
 
 
 @app.post('/week')
-def week_data():
-    pass
+def week_data(data:Dict[str,str]=Body(...)):
+    try:
+        result = api.get_week_data(data)
+        return result
+    except Exception as e:
+        return {"error":e,status:500}
 
 @app.post('/weekly')
-def weekly_data():
-    pass
+def weekly_data(data:Dict[str,str]=Body(...)):
+    try:
+        result = api.get_weekly_data(data)
+        return result
+    except Exception as e:
+        return {"error":e,status:500}
 
 @app.post('/month')
 def month_data(data: Dict[str, str] = Body(...)):
@@ -123,9 +131,15 @@ def year_data(data:Dict[str,str]=Body(...)):
         return result
     except Exception as e:
         return {"error":e,status:500}
+    
 @app.post('/range')
-def range_data():
-    pass
+def range_data(data:Dict[str,str]=Body(...)):
+    try:
+        result = api.get_range_data(data)
+        return result
+    except Exception as e:
+        return {"error":e,status:500}
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8000)

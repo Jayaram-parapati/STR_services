@@ -9,10 +9,60 @@ class APIendpoints(connect_to_MongoDb):
     def __init__(self):
         super().__init__()
         
-    def get_week_data(self):
-        pass
-    def get_weekly_data(self):
-        pass
+    def get_week_data(self,data):
+        try:
+            str_id = data["str_id"]
+            
+            obj = self.db.str_reports.find_one({"str_id": str_id})
+            str_id_objId = obj["_id"]
+            
+            start_query_date = data["startdate"]
+            start_ts_obj = datetime.strptime(start_query_date,"%Y-%m-%d")
+            
+            end_query_date = data["enddate"]
+            end_ts_obj = datetime.strptime(end_query_date,"%Y-%m-%d")
+            
+            pipeline=[
+                {"$match":{"timestamp":{"$gte":start_ts_obj,"$lte":end_ts_obj},"metadata.str_id": ObjectId(str_id_objId)}},
+                {"$project":{"_id":0,"metadata.str_id":0,"change_rate":0}}
+            ]
+            result ={}
+            coll_names = ["adr","occupancy","revpar"]
+            for collection_name in coll_names:
+                result.update({collection_name:list(self.db[collection_name].aggregate(pipeline))})
+            # print(result)
+            return result
+         
+        except Exception as e:
+            return{"error":e,status:500}
+        
+    def get_weekly_data(self,data):
+        try:
+            str_id = data["str_id"]
+            
+            obj = self.db.str_reports.find_one({"str_id": str_id})
+            str_id_objId = obj["_id"]
+            
+            start_query_date = data["week_start_date"]
+            start_ts_obj = datetime.strptime(start_query_date,"%Y-%m-%d")
+            
+            end_query_date = data["week_end_date"]
+            end_ts_obj = datetime.strptime(end_query_date,"%Y-%m-%d")
+            
+            pipeline=[
+                {"$match":{"timestamp":{"$gte":start_ts_obj,"$lte":end_ts_obj},"metadata.str_id": ObjectId(str_id_objId),"tag_type":{"$eq":"Current Week"}}},
+                {"$project":{"_id":0,"metadata.str_id":0,"change_rate":0}}
+            ]
+            result ={}
+            coll_names = ["adr","occupancy","revpar"]
+            for collection_name in coll_names:
+                result.update({collection_name:list(self.db[collection_name].aggregate(pipeline))})
+            # print(result)
+            return result
+         
+        except Exception as e:
+            return{"error":e,status:500} 
+    
     def get_month_data(self,data):
         try:
             str_id = data["str_id"]
@@ -126,5 +176,30 @@ class APIendpoints(connect_to_MongoDb):
         except Exception as e :
             return{"error":e,status:500}
         
-    def get_range_data(self):
-        pass
+    def get_range_data(self,data):
+        try:
+            str_id = data["str_id"]
+            
+            obj = self.db.str_reports.find_one({"str_id": str_id})
+            str_id_objId = obj["_id"]
+            
+            start_query_date = data["startdate"]
+            start_ts_obj = datetime.strptime(start_query_date,"%Y-%m-%d")
+            
+            end_query_date = data["enddate"]
+            end_ts_obj = datetime.strptime(end_query_date,"%Y-%m-%d")
+            
+            pipeline=[
+                {"$match":{"timestamp":{"$gte":start_ts_obj,"$lte":end_ts_obj},"metadata.str_id": ObjectId(str_id_objId),"tag_type":{"$exists":False},"metadata.label":{"$ne":"Your rank"}}},
+                {"$group":{"_id":{"label":"$metadata.label"},"avg_change":{"$avg":"$change"}}},
+                {"$project":{"_id":0,"label":"$_id.label","change":"$avg_change"}}
+            ]
+            result ={}
+            coll_names = ["adr","occupancy","revpar"]
+            for collection_name in coll_names:
+                result.update({collection_name:list(self.db[collection_name].aggregate(pipeline))})
+            # print(result)
+            return result
+         
+        except Exception as e:
+            return{"error":e,status:500}
