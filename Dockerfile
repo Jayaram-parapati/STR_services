@@ -9,9 +9,9 @@ RUN pip3 install -r /app/requirements.txt
 RUN apt-get update
 
 COPY ./*.py /app/
-COPY ./extraction_service /app/
-COPY ./mongo_service /app/
-COPY ./s3_service /app/
+COPY ./extraction_service /app/extraction_service
+COPY ./mongo_service /app/mongo_service
+COPY ./s3_service /app/s3_service
 ADD ./.env /app/
 
 EXPOSE 3000
