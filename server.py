@@ -30,7 +30,7 @@ db = db_connection.db
 
 app = FastAPI(title='STR Services')
 
-@app.post("/upload_file")
+@app.post("/upload_file",tags=["upload file"])
 def upload_file(files: list[UploadFile] = File(...),corporation: str = Form(...),str_id: str = Form(...)):
     try:
         file_status = []
@@ -78,7 +78,7 @@ def upload_file(files: list[UploadFile] = File(...),corporation: str = Form(...)
                         file_status.append({'file_name':fname,'s3_key':unique_filename, 'message':extraction['message'], 'status':extraction['status']})
 
                 else:
-                    file_status.append({'file_name':fname,'message':'Invalid file format. Allowed formats are .xlsx, xls only', 'status':500})
+                    file_status.append({'file_name':fname,'message':'Invalid file format. Allowed formats are .xlsx, .xls only', 'status':500})
             except Exception as ex:
                 file_status.append({'file_name':fname,"exception": str(ex), "message":"invalid file to Extraction",'status':500})
             
@@ -89,7 +89,7 @@ def upload_file(files: list[UploadFile] = File(...),corporation: str = Form(...)
         return JSONResponse({"messege": str(e),"status":500})
 
 
-@app.post('/week')
+@app.post('/week',tags = ["data end points"])
 def week_data(data:Dict[str,str]=Body(...)):
     try:
         result = api.get_week_data(data)
@@ -97,7 +97,7 @@ def week_data(data:Dict[str,str]=Body(...)):
     except Exception as e:
         return {"error":e,status:500}
 
-@app.post('/weekly')
+@app.post('/weekly',tags = ["data end points"])
 def weekly_data(data:Dict[str,str]=Body(...)):
     try:
         result = api.get_weekly_data(data)
@@ -105,7 +105,7 @@ def weekly_data(data:Dict[str,str]=Body(...)):
     except Exception as e:
         return {"error":e,status:500}
 
-@app.post('/month')
+@app.post('/month',tags = ["data end points"])
 def month_data(data: Dict[str, str] = Body(...)):
     try:
         result = api.get_month_data(data)
@@ -115,7 +115,7 @@ def month_data(data: Dict[str, str] = Body(...)):
         return {"error":e,status:500}
     
 
-@app.post('/monthly')
+@app.post('/monthly',tags = ["data end points"])
 def monthly_data(data:Dict[str,str]=Body(...)):
     try:
         result = api.get_monthly_data(data)
@@ -124,7 +124,7 @@ def monthly_data(data:Dict[str,str]=Body(...)):
     except Exception as e:
         return {"error":e,status:500}
 
-@app.post('/yearly')
+@app.post('/yearly',tags = ["data end points"])
 def year_data(data:Dict[str,str]=Body(...)):
     try:
         result = api.get_yearly_data(data)
@@ -132,7 +132,7 @@ def year_data(data:Dict[str,str]=Body(...)):
     except Exception as e:
         return {"error":e,status:500}
     
-@app.post('/range')
+@app.post('/range',tags = ["data end points"])
 def range_data(data:Dict[str,str]=Body(...)):
     try:
         result = api.get_range_data(data)
