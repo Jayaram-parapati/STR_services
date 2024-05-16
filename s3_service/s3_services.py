@@ -37,7 +37,6 @@ class AWS_S3_Service:
             return {"messege": unique_filename,"status":200}
         except Exception as ex:
             return JSONResponse({"messege": str(ex)})
-            # print("errro in upload_to_s3_file due to ", ex)
 
 
     def get_file_obj(self,s3_key):

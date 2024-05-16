@@ -6,7 +6,8 @@ COPY ./requirements.txt /app
 RUN pip3 install --upgrade pip
 RUN pip3 install gunicorn
 RUN pip3 install -r /app/requirements.txt
-RUN apt-get update
+RUN apt-get update && \
+    apt-get install -y mime-support
 
 COPY ./*.py /app/
 COPY ./extraction_service /app/extraction_service
