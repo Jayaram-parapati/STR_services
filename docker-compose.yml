@@ -10,7 +10,7 @@ services:
     build:
       context: .
     ports:
-      - "3000:3000"
+      - "80:80"
     links:
       - db
     networks:
@@ -23,9 +23,9 @@ services:
     environment:
       - HOME=/data/db
     volumes:
-      - /var/lib/mongodb:/data/db
+      - /home/ubuntu/strdb:/data/db
     ports:
-      - "27017:27017"
+      - "27018:27017"
     networks:
       - my-network
     

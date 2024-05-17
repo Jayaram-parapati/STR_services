@@ -15,6 +15,6 @@ COPY ./mongo_service /app/mongo_service
 COPY ./s3_service /app/s3_service
 ADD ./.env /app/
 
-EXPOSE 3000
+EXPOSE 80
 
-CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "server:app", "--bind", "0.0.0.0:3000"] 
+CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "server:app", "--bind", "0.0.0.0:80"] 
