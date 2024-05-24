@@ -6,7 +6,7 @@ import uuid
 import sys,json,os
 import pandas as pd
 from io import BytesIO
-from typing import Dict
+from typing import Dict,Optional
 from bson import ObjectId
 
 
@@ -31,7 +31,7 @@ db = db_connection.db
 app = FastAPI(title='STR Services')
 
 @app.post("/upload_file",tags=["upload file"])
-def upload_file(files: list[UploadFile] = File(...),corporation: str = Form(...),str_id: str = Form(...)):
+def upload_file(files: list[UploadFile] = File(...),corporation_name: str = Form(...),str_id: str = Form(...),corporation_id: str = Form(...),profit_center_id: Optional[str] = Form(None),user_id:str = Form(...)):
     try:
         file_status = []
         for path in files:
@@ -47,8 +47,11 @@ def upload_file(files: list[UploadFile] = File(...),corporation: str = Form(...)
                     "s3_key": unique_filename,
                     "upload_date": _ts,
                     "delete_status":0,
-                    "corporation": corporation,
+                    "corporation_name": corporation_name,
                     "str_id":str_id,
+                    "corporation_id":corporation_id,
+                    "profit_center_id":profit_center_id,
+                    "user_id":user_id
                 }
             
                 if file_extension == '.xlsx' or file_extension == '.xls':
@@ -60,23 +63,28 @@ def upload_file(files: list[UploadFile] = File(...),corporation: str = Form(...)
                         xl = pd.ExcelFile(file_body)  
                         sheets = xl.sheet_names
                         report = report_type.check_str_report_type(sheets,xl)
-                        if report["response"]["str_type"] == "Weekly STAR Report":
-                            extraction = weekly_extraction.prepare_all_dfs(sheets,xl)
-                            if extraction["status"] == 200:
-                                filedata.update({"report_type":report["response"]["str_type"].split(" ")[0]})
-                                db["Weekly_uploads"].insert_one(filedata)
-                                
-                        elif report["response"]["str_type"] == "Monthly STAR Report":
-                            extraction = monthly_extraction.prepare_all_dfs_monthly(sheets,xl)
-                            if extraction["status"] == 200:
-                                filedata.update({"report_type":report["response"]["str_type"].split(" ")[0]})
-                                db["Monthly_uploads"].insert_one(filedata)
+                        if report['response']['corporation'].lower().strip() == corporation_name.lower().strip() and report['response']['str_id'] == str_id:
 
+                            if report["response"]["str_type"] == "Weekly STAR Report":
+                                extraction = weekly_extraction.prepare_all_dfs(sheets,xl)
+                                if extraction["status"] == 200:
+                                    filedata.update({"report_type":report["response"]["str_type"].split(" ")[0],"date_range":report["response"]["date"]})
+                                    db["Weekly_uploads"].insert_one(filedata)
+                                    
+                            elif report["response"]["str_type"] == "Monthly STAR Report":
+                                extraction = monthly_extraction.prepare_all_dfs_monthly(sheets,xl)
+                                if extraction["status"] == 200:
+                                    filedata.update({"report_type":report["response"]["str_type"].split(" ")[0],"date_range":report["response"]["date"]})
+                                    db["Monthly_uploads"].insert_one(filedata)
+
+                            else:
+                                file_status.append({'file_name':fname,'message':'Invalid file', 'status':500})
+
+                            file_status.append({'file_name':fname,'s3_key':unique_filename, 'message':extraction['message'], 'status':extraction['status']})    
                         else:
-                            file_status.append({'file_name':fname,'message':'Invalid file', 'status':500})
+                            file_status.append({'file_name':fname,"message":"corporation Name (or) str ID are missmatched please check","status":400})       
 
-                        file_status.append({'file_name':fname,'s3_key':unique_filename, 'message':extraction['message'], 'status':extraction['status']})
-
+                        
                 else:
                     file_status.append({'file_name':fname,'message':'Invalid file format. Allowed formats are .xlsx, .xls only', 'status':500})
             except Exception as ex:
@@ -139,7 +147,8 @@ def range_data(data:Dict[str,str]=Body(...)):
         return result
     except Exception as e:
         return {"error":e,status:500}
+    
 
 
-# if __name__ == "__main__":
-#     uvicorn.run(app, host="127.0.0.1", port=8000)
+if __name__ == "__main__":
+    uvicorn.run(app, host="127.0.0.1", port=8000)
