@@ -205,7 +205,7 @@ class APIendpoints(connect_to_MongoDb):
             return{"error":e,status:500}
         
 
-    def mongodbcheck(self,fname,str_id,date,reportType):
+    def check_upload_file(self,fname,str_id,date,reportType):
         query = {
             "file_name": fname,
             "str_id": str_id,

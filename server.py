@@ -80,8 +80,8 @@ def upload_file(
                         reportType = report["response"]["str_type"].split(" ")[0]
                         reportDate = report["response"]['date']
 
-                        mongoCheck = api.mongodbcheck(fname,str_id,reportDate,reportType)
-                        if not mongoCheck:
+                        check_uploadFile = api.check_upload_file(fname,str_id,reportDate,reportType)
+                        if not check_uploadFile:
                             if report['response']['str_id'] == str_id:
 
                                 if reportType == "Weekly":
