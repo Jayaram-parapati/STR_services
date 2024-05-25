@@ -203,3 +203,22 @@ class APIendpoints(connect_to_MongoDb):
          
         except Exception as e:
             return{"error":e,status:500}
+        
+
+    def mongodbcheck(self,fname,str_id,date,reportType):
+        query = {
+            "file_name": fname,
+            "str_id": str_id,
+            "date_range": {
+                "$gte": date[0],
+                "$lte": date[1]
+            }
+        }
+        
+        matchObj = self.db[f'{reportType}_uploads'].find_one(query)
+        return matchObj
+
+       
+
+
+             

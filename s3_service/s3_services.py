@@ -28,12 +28,14 @@ class AWS_S3_Service:
     def upload_to_s3_object(self, file_content,unique_filename,content_type):
         try:
             file_content.seek(0)
-            self.s3client.upload_fileobj(
+            post = self.s3client.upload_fileobj(
                 Fileobj=file_content,
                 Bucket=self.S3_BUCKET_NAME,
                 Key=unique_filename,
                 ExtraArgs={"ContentType": content_type},
+                
             )
+            print("post--------------",post)
             return {"messege": unique_filename,"status":200}
         except Exception as ex:
             return JSONResponse({"messege": str(ex)})

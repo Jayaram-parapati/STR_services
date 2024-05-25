@@ -31,11 +31,21 @@ db = db_connection.db
 app = FastAPI(title='STR Services')
 
 @app.post("/upload_file",tags=["upload file"])
-def upload_file(files: list[UploadFile] = File(...),corporation_name: str = Form(...),str_id: str = Form(...),corporation_id: str = Form(...),profit_center_id: Optional[str] = Form(None),user_id:str = Form(...)):
+def upload_file(
+                files: list[UploadFile] = File(...),
+                corporation_name: str = Form(...),
+                str_id: str = Form(...),
+                corporation_id: str  = Form(...),
+                profit_center_id: Optional[str] = Form(None),
+                user_id:str = Form(...),
+                client_id: Optional[str] = Form(None),
+                url:str = Form(...),
+                ):
     try:
         file_status = []
         for path in files:
             try:
+                
                 file_content = path.file
                 fname = path.filename
                 file_name,file_extension = os.path.splitext(fname)
@@ -51,9 +61,12 @@ def upload_file(files: list[UploadFile] = File(...),corporation_name: str = Form
                     "str_id":str_id,
                     "corporation_id":corporation_id,
                     "profit_center_id":profit_center_id,
-                    "user_id":user_id
+                    "user_id":user_id,
+                    "client_id":client_id,
+                    "url":url
                 }
-            
+                
+               
                 if file_extension == '.xlsx' or file_extension == '.xls':
                     content_type = aws_boto3.get_mime_type(file_extension)
                     S3_file_upload = aws_boto3.upload_to_s3_object(file_content,unique_filename,content_type)
@@ -63,28 +76,41 @@ def upload_file(files: list[UploadFile] = File(...),corporation_name: str = Form
                         xl = pd.ExcelFile(file_body)  
                         sheets = xl.sheet_names
                         report = report_type.check_str_report_type(sheets,xl)
-                        if report['response']['corporation'].lower().strip() == corporation_name.lower().strip() and report['response']['str_id'] == str_id:
 
-                            if report["response"]["str_type"] == "Weekly STAR Report":
-                                extraction = weekly_extraction.prepare_all_dfs(sheets,xl)
-                                if extraction["status"] == 200:
-                                    filedata.update({"report_type":report["response"]["str_type"].split(" ")[0],"date_range":report["response"]["date"]})
-                                    db["Weekly_uploads"].insert_one(filedata)
-                                    
-                            elif report["response"]["str_type"] == "Monthly STAR Report":
-                                extraction = monthly_extraction.prepare_all_dfs_monthly(sheets,xl)
-                                if extraction["status"] == 200:
-                                    filedata.update({"report_type":report["response"]["str_type"].split(" ")[0],"date_range":report["response"]["date"]})
-                                    db["Monthly_uploads"].insert_one(filedata)
+                        reportType = report["response"]["str_type"].split(" ")[0]
+                        reportDate = report["response"]['date']
 
+                        mongoCheck = api.mongodbcheck(fname,str_id,reportDate,reportType)
+                        if not mongoCheck:
+                            if report['response']['str_id'] == str_id:
+
+                                if reportType == "Weekly":
+                                    extraction = weekly_extraction.prepare_all_dfs(sheets,xl)
+                                    if extraction["status"] == 200:
+                                        filedata.update({"report_type":reportType,"date_range":reportDate})
+                                        db["Weekly_uploads"].insert_one(filedata)
+                                        
+                                elif reportType == "Monthly": 
+                                    extraction = monthly_extraction.prepare_all_dfs_monthly(sheets,xl)
+                                    if extraction["status"] == 200:
+                                        filedata.update({"report_type":reportType,"date_range":reportDate})
+                                        db["Monthly_uploads"].insert_one(filedata)
+
+                                else:
+                                    file_status.append({'file_name':fname,'message':'Invalid file', 'status':500})
+
+                                file_status.append(
+                                    {'file_name':fname,
+                                    's3_key':f"https://hgtech-str-files.s3.ap-south-1.amazonaws.com/{unique_filename}",
+                                    'message':"successfully uploaded",
+                                    'status':extraction['status']
+                                    }
+                                    )    
                             else:
-                                file_status.append({'file_name':fname,'message':'Invalid file', 'status':500})
+                                file_status.append({'file_name':fname,"message":"str ID was missmatched please check","status":400})       
 
-                            file_status.append({'file_name':fname,'s3_key':unique_filename, 'message':extraction['message'], 'status':extraction['status']})    
                         else:
-                            file_status.append({'file_name':fname,"message":"corporation Name (or) str ID are missmatched please check","status":400})       
-
-                        
+                            file_status.append({'file_name':fname,'message':'file already exist please check', 'status':500})
                 else:
                     file_status.append({'file_name':fname,'message':'Invalid file format. Allowed formats are .xlsx, .xls only', 'status':500})
             except Exception as ex:

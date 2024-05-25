@@ -42,7 +42,7 @@ class str_report_type(connect_to_MongoDb):
             last_day = calendar.monthrange(drange.year, drange.month)[1]
             end_date = drange.replace(day=last_day)
             datemrange = [start_date,end_date]
-            
+
             strinfo["date"] = datemrange
 
         return strinfo
@@ -53,7 +53,6 @@ class str_report_type(connect_to_MongoDb):
 
         try:
             str_info = self.prepare_toc_sheet(df)
-            print("str_info--------->",str_info)
             return {'response':str_info, 'status':200}
         except Exception as e:
             return {'message':e, 'status':500}
