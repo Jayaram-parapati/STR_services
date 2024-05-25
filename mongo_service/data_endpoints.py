@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, Body, Form, Depends, status,File, UploadFile,Response,Query
 from datetime import datetime, timedelta
+import calendar
 from bson import ObjectId
 
 from mongo_service import connect_to_MongoDb
@@ -222,3 +223,72 @@ class APIendpoints(connect_to_MongoDb):
 
 
              
+    def get_import_files_monthly(self,data):
+        try:
+            corp_name = data["corporation_name"]
+            year = data["year"]
+            
+            start_query_date = f"{year} 01 01"
+            start_ts_obj = datetime.strptime(start_query_date,"%Y %m %d")
+            
+            end_query_date = f"{year} 12 31"
+            end_ts_obj = datetime.strptime(end_query_date,"%Y %m %d")
+  
+            pipeline = [
+                        {
+                         "$match":{
+                            "corporation_name": corp_name,
+                            "date_range":{"$elemMatch": {"$gte": start_ts_obj,"$lte": end_ts_obj}}
+                         }
+                        },
+                        {"$addFields": {
+                            "objId": {"$toString": "$_id"}
+                        }},
+                        {"$project": {
+                            "_id": 0,
+                            "delete_status":0
+                        }},
+                    ]
+            result = list(self.db["Monthly_uploads"].aggregate(pipeline))
+            return result
+        except Exception as e:
+            return {"error":e,status:500}
+    
+    def get_import_files_weekly(self,data):
+        try:
+            corp_name = data["corporation_name"]
+            year = data["year"]
+            start_month = data["month"]
+            end_month = int(data["month"])
+            if data["month"] == "all":
+                start_month = f"{1:02d}"
+                end_month = 12
+            date = calendar.monthrange(year,end_month)[1]
+            
+            
+            start_query_date = f"{year} {start_month} 01"
+            start_ts_obj = datetime.strptime(start_query_date,"%Y %m %d")
+            
+            end_query_date = f"{year} {end_month} {date}"
+            end_ts_obj = datetime.strptime(end_query_date,"%Y %m %d")
+            
+            pipeline = [
+                        {
+                         "$match":{
+                            "corporation_name": corp_name,
+                            "date_range":{"$elemMatch": {"$gte": start_ts_obj,"$lte": end_ts_obj}}
+                         }
+                        },
+                        {"$addFields": {
+                            "objId": {"$toString": "$_id"}
+                        }},
+                        {"$project": {
+                            "_id": 0,
+                            "delete_status":0
+                        }},
+                    ]
+            result = list(self.db["Weekly_uploads"].aggregate(pipeline))
+            return result
+        except Exception as e:
+            return {"error":e,status:500}
+    

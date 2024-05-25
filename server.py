@@ -6,7 +6,7 @@ import uuid
 import sys,json,os
 import pandas as pd
 from io import BytesIO
-from typing import Dict,Optional
+from typing import Dict,Optional,Union
 from bson import ObjectId
 
 
@@ -174,7 +174,34 @@ def range_data(data:Dict[str,str]=Body(...)):
     except Exception as e:
         return {"error":e,status:500}
     
+@app.post('/importFilesList',tags=["import screen end points"])
+def import_files(corporation:str = Form(...),profit_center:Optional[str] = Form(None),filetype:str = Form(...),year:int = Form(...),month:Optional[Union[int,str]] = Form(None)):
+    try:
+        
+        query_params = {"corporation_name":corporation,
+                        "report_type":filetype,
+                        "year":year,}
+        if profit_center:
+            query_params.update({"profit_center":profit_center,})
+        if filetype == "Monthly":
+            result = api.get_import_files_monthly(query_params)
+        elif filetype == "Weekly":
+            query_params.update({"month":month})
+            result = api.get_import_files_weekly(query_params)
+        else:
+            result = api.get_import_files_monthly(query_params)
+            query_params.update({"month":month})
+            result.append(api.get_import_files_weekly(query_params))
+            
+            # result = api.get_import_files_both()
+        if len(result) == 0:
+            message = f"No Files found for {corporation} for {year} "
+            if filetype == "Weekly":
+                message += f"{month}"
+            return {"message":message,"status":200}
+        return result
+    except Exception as e:
+        return {"error":e,status:500}
 
-
-if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+# if __name__ == "__main__":
+#     uvicorn.run(app, host="127.0.0.1", port=8000)
