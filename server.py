@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, Body, Form, Depends, status,File, UploadFile,Response,Query
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from datetime import datetime
 import uuid
@@ -28,6 +29,18 @@ db = db_connection.db
 
 
 app = FastAPI(title='STR Services')
+origins = [
+    "http://localhost:8000",  
+    "http://localhost:7187",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.post("/upload_file",tags=["upload file"])
 def upload_file(
