@@ -205,7 +205,6 @@ class APIendpoints(connect_to_MongoDb):
         except Exception as e:
             return{"error":e,status:500}
         
-
     def check_upload_file(self,fname,str_id,date,reportType):
         query = {
             "file_name": fname,
@@ -218,11 +217,7 @@ class APIendpoints(connect_to_MongoDb):
         
         matchObj = self.db[f'{reportType}_uploads'].find_one(query)
         return matchObj
-
-       
-
-
-             
+           
     def get_import_files_monthly(self,data):
         try:
             corp_name = data["corporation_name"]

@@ -174,7 +174,7 @@ def range_data(data:Dict[str,str]=Body(...)):
         return {"error":e,status:500}
     
 @app.post('/importFilesList',tags=["import screen end points"])
-def import_files(corporation:str = Form(...),profit_center:Optional[str] = Form(None),filetype:str = Form(...),year:int = Form(...),month:Optional[Union[int,str]] = Form(None)):
+def import_files(corporation:str,filetype:str,year:int,month:Optional[Union[int,str]]=None,profit_center:Optional[str]=None,):
     try:
         result = {}
         query_params = {"corporation_name":corporation,
