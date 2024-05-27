@@ -98,7 +98,7 @@ class APIendpoints(connect_to_MongoDb):
             coll_names = ["adr_monthlyAvgs","occupancy_monthlyAvgs","revpar_monthlyAvgs"]
             for collection_name in coll_names:
                 result.update({collection_name:list(self.db[collection_name].aggregate(pipeline))})
-                result[collection_name].append(list(self.db[collection_name].aggregate(pipeline1)))
+                result.update({collection_name+"_runningMonthsData":list(self.db[collection_name].aggregate(pipeline1))})
             # print(result)
             return result
         except Exception as e:
