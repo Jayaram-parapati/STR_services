@@ -30,8 +30,8 @@ db = db_connection.db
 
 app = FastAPI(title='STR Services')
 origins = [
-    "http://localhost:8000",  
-    "http://localhost:7187",
+    "https://localhost:8000",  
+    "https://localhost:7187",
 ]
 
 app.add_middleware(
