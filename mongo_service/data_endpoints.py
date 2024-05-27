@@ -227,11 +227,17 @@ class APIendpoints(connect_to_MongoDb):
         try:
             corp_name = data["corporation_name"]
             year = data["year"]
+            start_month = int(f"{1:02d}")
+            end_month = 12
+            if data["report_type"] == "Both" and data["month"] != "all":
+                start_month = int(data["month"])
+                end_month = int(data["month"])
+            date = calendar.monthrange(year,end_month)[1]
             
-            start_query_date = f"{year} 01 01"
+            start_query_date = f"{year} {start_month} 01"
             start_ts_obj = datetime.strptime(start_query_date,"%Y %m %d")
             
-            end_query_date = f"{year} 12 31"
+            end_query_date = f"{year} {end_month} {date}"
             end_ts_obj = datetime.strptime(end_query_date,"%Y %m %d")
   
             pipeline = [
@@ -258,11 +264,14 @@ class APIendpoints(connect_to_MongoDb):
         try:
             corp_name = data["corporation_name"]
             year = data["year"]
-            start_month = data["month"]
-            end_month = int(data["month"])
+            
             if data["month"] == "all":
-                start_month = f"{1:02d}"
+                start_month = int(f"{1:02d}")
                 end_month = 12
+            else:
+                start_month = int(data["month"])
+                end_month = int(data["month"])
+            
             date = calendar.monthrange(year,end_month)[1]
             
             

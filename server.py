@@ -9,7 +9,6 @@ from io import BytesIO
 from typing import Dict,Optional,Union
 from bson import ObjectId
 
-
 from mongo_service import connect_to_MongoDb
 from extraction_service.weekly_report_extraction import Weekly_extraction
 from extraction_service.monthly_report_extraction import Monthly_extraction
@@ -177,21 +176,21 @@ def range_data(data:Dict[str,str]=Body(...)):
 @app.post('/importFilesList',tags=["import screen end points"])
 def import_files(corporation:str = Form(...),profit_center:Optional[str] = Form(None),filetype:str = Form(...),year:int = Form(...),month:Optional[Union[int,str]] = Form(None)):
     try:
-        
+        result = {}
         query_params = {"corporation_name":corporation,
                         "report_type":filetype,
                         "year":year,}
         if profit_center:
             query_params.update({"profit_center":profit_center,})
         if filetype == "Monthly":
-            result = api.get_import_files_monthly(query_params)
+            result.update({filetype:api.get_import_files_monthly(query_params)})
         elif filetype == "Weekly":
             query_params.update({"month":month})
-            result = api.get_import_files_weekly(query_params)
-        else:
-            result = api.get_import_files_monthly(query_params)
+            result.update({filetype:api.get_import_files_weekly(query_params)})
+        elif filetype == "Both":
             query_params.update({"month":month})
-            result.append(api.get_import_files_weekly(query_params))
+            result.update({"Monthly":api.get_import_files_monthly(query_params)})
+            result.update({"Weekly":api.get_import_files_weekly(query_params)})
             
             # result = api.get_import_files_both()
         if len(result) == 0:
