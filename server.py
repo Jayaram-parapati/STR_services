@@ -188,8 +188,13 @@ def range_data(data:Dict[str,str]=Body(...)):
         return {"error":e,status:500}
     
 @app.post('/importFilesList',tags=["import screen end points"])
-def import_files(corporation:str,filetype:str,year:int,month:Optional[Union[int,str]]=None,profit_center:Optional[str]=None,):
+def import_files(data:Dict[str,str]=Body(...)):
     try:
+        corporation = data["corporation"]
+        filetype = data["filetype"]
+        year = int(data["year"])
+        month = data.get("month", None)
+        profit_center = data.get("profit_center", None)
         result = {}
         query_params = {"corporation_name":corporation,
                         "report_type":filetype,
@@ -216,5 +221,5 @@ def import_files(corporation:str,filetype:str,year:int,month:Optional[Union[int,
     except Exception as e:
         return {"error":e,status:500}
 
-# if __name__ == "__main__":
-#     uvicorn.run(app, host="127.0.0.1", port=8000)
+if __name__ == "__main__":
+    uvicorn.run(app, host="127.0.0.1", port=8000)
