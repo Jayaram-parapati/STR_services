@@ -14,14 +14,14 @@ class APIendpoints(connect_to_MongoDb):
         try:
             str_id = data["str_id"]
             
-            obj = self.db.str_reports.find_one({"str_id": str_id})
-            str_id_objId = obj["_id"]
-            
             start_query_date = data["startdate"]
             start_ts_obj = datetime.strptime(start_query_date,"%Y-%m-%d")
             
             end_query_date = data["enddate"]
             end_ts_obj = datetime.strptime(end_query_date,"%Y-%m-%d")
+            
+            obj = self.db.str_reports.find_one({"str_id": str_id,"str_date_range":{"$elemMatch": {"$gte": start_ts_obj,"$lte": end_ts_obj}}})
+            str_id_objId = obj["_id"]
             
             pipeline=[
                 {"$match":{"timestamp":{"$gte":start_ts_obj,"$lte":end_ts_obj},"metadata.str_id": ObjectId(str_id_objId)}},
@@ -40,18 +40,18 @@ class APIendpoints(connect_to_MongoDb):
     def get_weekly_data(self,data):
         try:
             str_id = data["str_id"]
-            
-            obj = self.db.str_reports.find_one({"str_id": str_id})
-            str_id_objId = obj["_id"]
-            
+         
             start_query_date = data["week_start_date"]
             start_ts_obj = datetime.strptime(start_query_date,"%Y-%m-%d")
             
             end_query_date = data["week_end_date"]
             end_ts_obj = datetime.strptime(end_query_date,"%Y-%m-%d")
             
+            documents = list(self.db.str_reports.find({"str_id": str_id,"str_date_range":{"$elemMatch": {"$gte": start_ts_obj,"$lte": end_ts_obj}}}))
+            str_id_objIds = [doc["_id"] for doc in documents]
+            
             pipeline=[
-                {"$match":{"timestamp":{"$gte":start_ts_obj,"$lte":end_ts_obj},"metadata.str_id": ObjectId(str_id_objId),"tag_type":{"$eq":"Current Week"}}},
+                {"$match":{"timestamp":{"$gte":start_ts_obj,"$lte":end_ts_obj},"metadata.str_id": {"$in": str_id_objIds},"tag_type":{"$eq":"Current Week"}}},
                 {"$project":{"_id":0,"metadata.str_id":0,"change_rate":0}}
             ]
             result ={}
@@ -180,20 +180,22 @@ class APIendpoints(connect_to_MongoDb):
     def get_range_data(self,data):
         try:
             str_id = data["str_id"]
-            
-            obj = self.db.str_reports.find_one({"str_id": str_id})
-            str_id_objId = obj["_id"]
-            
+    
             start_query_date = data["startdate"]
             start_ts_obj = datetime.strptime(start_query_date,"%Y-%m-%d")
             
             end_query_date = data["enddate"]
             end_ts_obj = datetime.strptime(end_query_date,"%Y-%m-%d")
             
+            documents = list(self.db.str_reports.find({"str_id": str_id,"str_date_range":{"$elemMatch": {"$gte": start_ts_obj,"$lte": end_ts_obj}}}))
+            str_id_objIds = [doc["_id"] for doc in documents]
+            
             pipeline=[
-                {"$match":{"timestamp":{"$gte":start_ts_obj,"$lte":end_ts_obj},"metadata.str_id": ObjectId(str_id_objId),"tag_type":{"$exists":False},"metadata.label":{"$ne":"Your rank"}}},
-                {"$group":{"_id":{"label":"$metadata.label"},"avg_change":{"$avg":"$change"}}},
-                {"$project":{"_id":0,"label":"$_id.label","change":"$avg_change"}}
+                {"$match":{"timestamp":{"$gte":start_ts_obj,"$lte":end_ts_obj},"metadata.str_id": {"$in": str_id_objIds},"tag_type":{"$exists":False},"metadata.label":{"$ne":"Your rank"}}},
+                # {"$group":{"_id":{"label":"$metadata.label"},"avg_change":{"$avg":"$change"}}},
+                # {"$project":{"_id":0,"label":"$_id.label","change":"$avg_change"}}
+                {"$group": {"_id": "$metadata.label","unique_changes": {"$addToSet": {"timestamp": "$timestamp","change": "$change"}}}},
+                {"$project": {"_id": 0,"label": "$_id","change": {"$avg": "$unique_changes.change"}}}
             ]
             result ={}
             coll_names = ["adr","occupancy","revpar"]
