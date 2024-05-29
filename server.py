@@ -190,13 +190,13 @@ def range_data(data:Dict[str,str]=Body(...)):
 @app.post('/importFilesList',tags=["import screen end points"])
 def import_files(data:Dict[str,str]=Body(...)):
     try:
-        corporation = data["corporation"]
+        corporation_id = data["corporation_id"]
         filetype = data["filetype"]
         year = int(data["year"])
         month = data.get("month", None)
         profit_center = data.get("profit_center", None)
         result = {}
-        query_params = {"corporation_name":corporation,
+        query_params = {"corporation_id":corporation_id,
                         "report_type":filetype,
                         "year":year,}
         if profit_center:
@@ -213,7 +213,7 @@ def import_files(data:Dict[str,str]=Body(...)):
             
             # result = api.get_import_files_both()
         if len(result) == 0:
-            message = f"No Files found for {corporation} for {year} "
+            message = f"No Files found for {corporation_id} for {year} "
             if filetype == "Weekly":
                 message += f"{month}"
             return {"message":message,"status":200}

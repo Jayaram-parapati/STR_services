@@ -25,7 +25,7 @@ class APIendpoints(connect_to_MongoDb):
             
             pipeline=[
                 {"$match":{"timestamp":{"$gte":start_ts_obj,"$lte":end_ts_obj},"metadata.str_id": ObjectId(str_id_objId)}},
-                {"$project":{"_id":0,"metadata.str_id":0,"change_rate":0}}
+                {"$project":{"_id":0,"metadata.str_id":0}}
             ]
             result ={}
             coll_names = ["adr","occupancy","revpar"]
@@ -52,7 +52,7 @@ class APIendpoints(connect_to_MongoDb):
             
             pipeline=[
                 {"$match":{"timestamp":{"$gte":start_ts_obj,"$lte":end_ts_obj},"metadata.str_id": {"$in": str_id_objIds},"tag_type":{"$eq":"Current Week"}}},
-                {"$project":{"_id":0,"metadata.str_id":0,"change_rate":0}}
+                {"$project":{"_id":0,"metadata.str_id":0}}
             ]
             result ={}
             coll_names = ["adr","occupancy","revpar"]
@@ -88,11 +88,11 @@ class APIendpoints(connect_to_MongoDb):
             
             pipeline = [
                 {"$match":{"timestamp":{"$gte":start_ts_obj,"$lte":end_ts_obj},"metadata.str_id": ObjectId(str_id_objId),"tag_type":{"$exists":False}}},
-                {"$project":{"_id":0,"metadata.str_id":0,"change_rate":0}}
+                {"$project":{"_id":0,"metadata.str_id":0}}
             ]
             pipeline1 = [
                 {"$match":{"timestamp":{"$eq":end_ts_obj},"metadata.str_id": ObjectId(str_id_objId),"tag_type":{"$exists":True}}},
-                {"$project":{"_id":0,"metadata.str_id":0,"change_rate":0}}
+                {"$project":{"_id":0,"metadata.str_id":0}}
             ]
             result={}
             coll_names = ["adr_monthlyAvgs","occupancy_monthlyAvgs","revpar_monthlyAvgs"]
@@ -120,7 +120,7 @@ class APIendpoints(connect_to_MongoDb):
             
             pipeline=[
                 {"$match":{"timestamp":{"$gte":start_ts_obj,"$lte":end_ts_obj},"metadata.str_id": ObjectId(str_id_objId),"tag_type":{"$exists":False}}},
-                {"$project":{"_id":0,"metadata.str_id":0,"change_rate":0}}
+                {"$project":{"_id":0,"metadata.str_id":0}}
             ]
             result ={}
             coll_names = ["adr_monthlyAvgs","occupancy_monthlyAvgs","revpar_monthlyAvgs"]
@@ -194,8 +194,8 @@ class APIendpoints(connect_to_MongoDb):
                 {"$match":{"timestamp":{"$gte":start_ts_obj,"$lte":end_ts_obj},"metadata.str_id": {"$in": str_id_objIds},"tag_type":{"$exists":False},"metadata.label":{"$ne":"Your rank"}}},
                 # {"$group":{"_id":{"label":"$metadata.label"},"avg_change":{"$avg":"$change"}}},
                 # {"$project":{"_id":0,"label":"$_id.label","change":"$avg_change"}}
-                {"$group": {"_id": "$metadata.label","unique_changes": {"$addToSet": {"timestamp": "$timestamp","change": "$change"}}}},
-                {"$project": {"_id": 0,"label": "$_id","change": {"$avg": "$unique_changes.change"}}}
+                {"$group": {"_id": "$metadata.label","unique_changes": {"$addToSet": {"timestamp": "$timestamp","change": "$change","change_rate":"$change_rate"}}}},
+                {"$project": {"_id": 0,"label": "$_id","change": {"$avg": "$unique_changes.change"},"change_rate": {"$avg": "$unique_changes.change_rate"}}}
             ]
             result ={}
             coll_names = ["adr","occupancy","revpar"]
@@ -222,7 +222,8 @@ class APIendpoints(connect_to_MongoDb):
            
     def get_import_files_monthly(self,data):
         try:
-            corp_name = data["corporation_name"]
+            corporation_id = data["corporation_id"]
+            profit_center = data.get("profit_center", None)
             year = data["year"]
             start_month = int(f"{1:02d}")
             end_month = 12
@@ -236,13 +237,17 @@ class APIendpoints(connect_to_MongoDb):
             
             end_query_date = f"{year} {end_month} {date}"
             end_ts_obj = datetime.strptime(end_query_date,"%Y %m %d")
-  
-            pipeline = [
-                        {
-                         "$match":{
-                            "corporation_name": corp_name,
+
+            match_query = {
+                            "corporation_id": corporation_id,
                             "date_range":{"$elemMatch": {"$gte": start_ts_obj,"$lte": end_ts_obj}}
                          }
+            if profit_center:
+                match_query.update({"profit_center_id":profit_center,})
+            
+            pipeline = [
+                        {
+                         "$match": match_query
                         },
                         {"$addFields": {
                             "objId": {"$toString": "$_id"}
@@ -259,9 +264,9 @@ class APIendpoints(connect_to_MongoDb):
     
     def get_import_files_weekly(self,data):
         try:
-            corp_name = data["corporation_name"]
+            corporation_id = data["corporation_id"]
             year = data["year"]
-            
+            profit_center = data.get("profit_center", None)
             if data["month"] == "all":
                 start_month = int(f"{1:02d}")
                 end_month = 12
@@ -278,12 +283,16 @@ class APIendpoints(connect_to_MongoDb):
             end_query_date = f"{year} {end_month} {date}"
             end_ts_obj = datetime.strptime(end_query_date,"%Y %m %d")
             
-            pipeline = [
-                        {
-                         "$match":{
-                            "corporation_name": corp_name,
+            match_query = {
+                            "corporation_id": corporation_id,
                             "date_range":{"$elemMatch": {"$gte": start_ts_obj,"$lte": end_ts_obj}}
                          }
+            if profit_center:
+                match_query.update({"profit_center_id":profit_center,})
+                
+            pipeline = [
+                        {
+                         "$match":match_query
                         },
                         {"$addFields": {
                             "objId": {"$toString": "$_id"}
