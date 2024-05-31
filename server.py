@@ -100,13 +100,13 @@ def upload_file(
                                 if reportType == "Weekly":
                                     extraction = weekly_extraction.prepare_all_dfs(sheets,xl)
                                     if extraction["status"] == 200:
-                                        filedata.update({"report_type":reportType,"date_range":reportDate})
+                                        filedata.update({"report_type":reportType,"date_range":reportDate,"extraction_report_id":extraction["report_id"]})
                                         db["Weekly_uploads"].insert_one(filedata)
                                         
                                 elif reportType == "Monthly": 
                                     extraction = monthly_extraction.prepare_all_dfs_monthly(sheets,xl)
                                     if extraction["status"] == 200:
-                                        filedata.update({"report_type":reportType,"date_range":reportDate})
+                                        filedata.update({"report_type":reportType,"date_range":reportDate,"extraction_report_id":extraction["report_id"]})
                                         db["Monthly_uploads"].insert_one(filedata)
 
                                 else:
@@ -141,16 +141,20 @@ def week_data(data:Dict[str,str]=Body(...)):
     try:
         result = api.get_week_data(data)
         return result
+    except HTTPException as e:
+        raise e  
     except Exception as e:
-        return {"error":e,status:500}
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post('/weekly',tags = ["data end points"])
 def weekly_data(data:Dict[str,str]=Body(...)):
     try:
         result = api.get_weekly_data(data)
         return result
+    except HTTPException as e:
+        raise e  
     except Exception as e:
-        return {"error":e,status:500}
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post('/month',tags = ["data end points"])
 def month_data(data: Dict[str, str] = Body(...)):
@@ -158,8 +162,10 @@ def month_data(data: Dict[str, str] = Body(...)):
         result = api.get_month_data(data)
         # print(result)
         return result
+    except HTTPException as e:
+        raise e  
     except Exception as e:
-        return {"error":e,status:500}
+        raise HTTPException(status_code=500, detail=str(e))
     
 
 @app.post('/monthly',tags = ["data end points"])
@@ -168,24 +174,30 @@ def monthly_data(data:Dict[str,str]=Body(...)):
         result = api.get_monthly_data(data)
         # print(result)
         return result
+    except HTTPException as e:
+        raise e  
     except Exception as e:
-        return {"error":e,status:500}
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post('/yearly',tags = ["data end points"])
 def year_data(data:Dict[str,str]=Body(...)):
     try:
         result = api.get_yearly_data(data)
         return result
+    except HTTPException as e:
+        raise e  
     except Exception as e:
-        return {"error":e,status:500}
+        raise HTTPException(status_code=500, detail=str(e))
     
 @app.post('/range',tags = ["data end points"])
 def range_data(data:Dict[str,str]=Body(...)):
     try:
         result = api.get_range_data(data)
         return result
+    except HTTPException as e:
+        raise e  
     except Exception as e:
-        return {"error":e,status:500}
+        raise HTTPException(status_code=500, detail=str(e))
     
 @app.post('/importFilesList',tags=["import screen end points"])
 def import_files(data:Dict[str,str]=Body(...)):
@@ -198,9 +210,9 @@ def import_files(data:Dict[str,str]=Body(...)):
         result = {}
         query_params = {"corporation_id":corporation_id,
                         "report_type":filetype,
-                        "year":year,}
+                        "year":year}
         if profit_center:
-            query_params.update({"profit_center":profit_center,})
+            query_params.update({"profit_center":profit_center})
         if filetype == "Monthly":
             result.update({filetype:api.get_import_files_monthly(query_params)})
         elif filetype == "Weekly":
@@ -210,16 +222,12 @@ def import_files(data:Dict[str,str]=Body(...)):
             query_params.update({"month":month})
             result.update({"Monthly":api.get_import_files_monthly(query_params)})
             result.update({"Weekly":api.get_import_files_weekly(query_params)})
-            
-            # result = api.get_import_files_both()
-        if len(result) == 0:
-            message = f"No Files found for {corporation_id} for {year} "
-            if filetype == "Weekly":
-                message += f"{month}"
-            return {"message":message,"status":200}
+
         return result
+    except HTTPException as e:
+        raise e  
     except Exception as e:
-        return {"error":e,status:500}
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8000)

@@ -286,7 +286,7 @@ class Monthly_extraction(connect_to_MongoDb):
         global year
         global month
         
-        collection_name = "str_reports"
+        collection_name = "Monthly_str_reports"
         df = dfo["df"]
 
         df.dropna(axis="columns", how="all", inplace=True)
@@ -315,7 +315,7 @@ class Monthly_extraction(connect_to_MongoDb):
                 # timeseries={"timeField": "timestamp", "metaField": "metadata"},
             )
         if config["save_to_db"] == True:
-            check_strid = self.db[collection_name].find_one({"str_id":strinfo["str_id"]})
+            check_strid = self.db[collection_name].find_one({"str_id":strinfo["str_id"],"str_date_range":{"$eq": drange}})
             if check_strid:
                 return check_strid["_id"]
             else:
@@ -337,7 +337,7 @@ class Monthly_extraction(connect_to_MongoDb):
                     self.prepare_comp_sheet(dfo, str_id)
                 if dfo["sheet"] == "Daily by Month":
                     self.prepare_daily_sheet(dfo, str_id)  
-            return {'message':'Extraction Success', 'status':200}
+            return {'message':'Extraction Success', 'status':200,"report_id":str_id}
         except Exception as e:
             return {'message':e, 'status':500}
 

@@ -452,7 +452,7 @@ class Weekly_extraction(connect_to_MongoDb):
         # print(dfo)
         global year
         global week_range
-        collection_name = "str_reports"
+        collection_name = "Weekly_str_reports"
         df = dfo["df"]
 
         df.dropna(axis="columns", how="all", inplace=True)
@@ -513,7 +513,7 @@ class Weekly_extraction(connect_to_MongoDb):
                     self.prepare_other_sheet(dfo, "adr_ss", str_id)
                 if dfo["sheet"] == "RevPAR":  # todo: need to check if values are correct
                     self.prepare_other_sheet(dfo, "revpar_ss", str_id)   
-            return {'message':'Extraction Success', 'status':200}
+            return {'message':'Extraction Success', 'status':200,"report_id":str_id}
         except Exception as e:
             return {'message':e, 'status':500}
     
