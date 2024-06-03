@@ -41,10 +41,19 @@ class APIendpoints(connect_to_MongoDb):
             
             pipeline=[
                 {"$match":{"timestamp":{"$gte":start_ts_obj,"$lte":end_ts_obj},"metadata.str_id": ObjectId(str_id_objId)}},
-                {"$project":{"_id":0,"metadata.str_id":0}}
+                {"$project":{"_id":0,"metadata.str_id":0,"change_rate":0}}
             ]
-            result ={}
             
+            collection = data.get("sheet",None)
+            if collection:
+                res = {}
+                res.update({"corporation":obj["corporation_name"],
+                            "sheet":collection,
+                            "data":list(self.db[collection].aggregate(pipeline)),
+                            "status_code":200})
+                return res
+            
+            result ={}
             coll_names = ["adr","occupancy","revpar"]
             for collection_name in coll_names:
                 result.update({collection_name:list(self.db[collection_name].aggregate(pipeline))})
@@ -87,8 +96,18 @@ class APIendpoints(connect_to_MongoDb):
             
             pipeline=[
                 {"$match":{"timestamp":{"$gte":start_ts_obj,"$lte":end_ts_obj},"metadata.str_id": {"$in": str_id_objIds},"tag_type":{"$eq":"Current Week"}}},
-                {"$project":{"_id":0,"metadata.str_id":0}}
+                {"$project":{"_id":0,"metadata.str_id":0,"change_rate":0}}
             ]
+            
+            collection = data.get("sheet",None)
+            if collection:
+                res = {}
+                res.update({"corporation":documents[0]["corporation_name"],
+                            "sheet":collection,
+                            "data":list(self.db[collection].aggregate(pipeline)),
+                            "status_code":200})
+                return res
+            
             result ={}
             coll_names = ["adr","occupancy","revpar"]
             for collection_name in coll_names:
@@ -114,11 +133,13 @@ class APIendpoints(connect_to_MongoDb):
                 start_month = month-2
                 start_year = year    
             
-            start_query_date = f"{start_year} {start_month}"
-            start_ts_obj = datetime.strptime(start_query_date,"%Y %m")
+            date = calendar.monthrange(year,month)[1]
             
-            end_query_date = f"{year} {month}"
-            end_ts_obj = datetime.strptime(end_query_date,"%Y %m")
+            start_query_date = f"{year} {month} 01"
+            start_ts_obj = datetime.strptime(start_query_date,"%Y %m %d")
+            
+            end_query_date = f"{year} {month} {date}"
+            end_ts_obj = datetime.strptime(end_query_date,"%Y %m %d")
             
             today = datetime.today()
             if start_ts_obj >= today or end_ts_obj >= today:
@@ -141,12 +162,27 @@ class APIendpoints(connect_to_MongoDb):
             
             pipeline = [
                 {"$match":{"timestamp":{"$gte":start_ts_obj,"$lte":end_ts_obj},"metadata.str_id": ObjectId(str_id_objId),"tag_type":{"$exists":False}}},
-                {"$project":{"_id":0,"metadata.str_id":0}}
+                {"$project":{"_id":0,"metadata.str_id":0,"change_rate":0}}
             ]
             pipeline1 = [
-                {"$match":{"timestamp":{"$eq":end_ts_obj},"metadata.str_id": ObjectId(str_id_objId),"tag_type":{"$exists":True}}},
-                {"$project":{"_id":0,"metadata.str_id":0}}
+                {"$match":{"timestamp":{"$eq":start_ts_obj},"metadata.str_id": ObjectId(str_id_objId),"tag_type":{"$exists":True}}},
+                {"$project":{"_id":0,"metadata.str_id":0,"change_rate":0}}
             ]
+            
+            collection = data.get("sheet",None)
+            if collection:
+                res = {}
+                coll_name = collection+"_monthlyAvgs"
+                res.update({coll_name:{"corporation":obj["corporation_name"],
+                            "sheet":collection,
+                            "data":list(self.db[coll_name].aggregate(pipeline)),
+                            "status_code":200}})
+                res.update({coll_name+"_glance":{"corporation":obj["corporation_name"],
+                            "sheet":collection,
+                            "data":list(self.db[coll_name].aggregate(pipeline1)),
+                            "status_code":200}})
+                return res
+            
             result={}
             coll_names = ["adr_monthlyAvgs","occupancy_monthlyAvgs","revpar_monthlyAvgs"]
             for collection_name in coll_names:
@@ -168,8 +204,8 @@ class APIendpoints(connect_to_MongoDb):
             start_query_date = f"{year} 01"
             start_ts_obj = datetime.strptime(start_query_date,"%Y %m")
             
-            end_query_date = f"{year} 12"
-            end_ts_obj = datetime.strptime(end_query_date,"%Y %m")
+            end_query_date = f"{year} 12 31"
+            end_ts_obj = datetime.strptime(end_query_date,"%Y %m %d")
             
             today = datetime.today()
             if start_ts_obj >= today or end_ts_obj >= today:
@@ -191,8 +227,21 @@ class APIendpoints(connect_to_MongoDb):
             
             pipeline=[
                 {"$match":{"timestamp":{"$gte":start_ts_obj,"$lte":end_ts_obj},"metadata.str_id": {"$in": str_id_objIds},"tag_type":{"$exists":False}}},
-                {"$project":{"_id":0,"metadata.str_id":0}}
+                {"$group":{"_id":{"timestamp":"$timestamp","label":"$metadata.label"},"unique_change":{"$first":"$change"}}},
+                {"$project": {"_id": 0,"timestamp": "$_id.timestamp","label":"$_id.label","change": "$unique_change"}},
+                {"$sort":{"timestamp":1}}
             ]
+            
+            collection = data.get("sheet",None)
+            if collection:
+                res = {}
+                coll_name = collection+"_monthlyAvgs"
+                res.update({"corporation":documents[0]["corporation_name"],
+                            "sheet":collection,
+                            "data":list(self.db[coll_name].aggregate(pipeline)),
+                            "status_code":200})
+                return res
+            
             result ={}
             coll_names = ["adr_monthlyAvgs","occupancy_monthlyAvgs","revpar_monthlyAvgs"]
             for collection_name in coll_names:
@@ -215,10 +264,10 @@ class APIendpoints(connect_to_MongoDb):
             start_year = current_year - num
             
             
-            start_query_date = f"{start_year} {current_month} 01"
+            start_query_date = f"{start_year} 01 01"
             start_ts_obj = datetime.strptime(start_query_date,"%Y %m %d")
             
-            end_query_date = f"{current_year} {current_month} 01"
+            end_query_date = f"{current_year} 12 31"
             end_ts_obj = datetime.strptime(end_query_date,"%Y %m %d")
             
             obj_id_query = {
@@ -255,6 +304,17 @@ class APIendpoints(connect_to_MongoDb):
                             "else":{"$concat":[{"$toString":{"$round":"$avg_change"}}," of 5"]}}}}},
                 {"$sort":{"year":1}}
             ]
+            
+            collection = data.get("sheet",None)
+            if collection:
+                res = {}
+                coll_name = collection+"_monthlyAvgs"
+                res.update({"corporation":documents[0]["corporation_name"],
+                            "sheet":collection,
+                            "data":list(self.db[coll_name].aggregate(pipeline)),
+                            "status_code":200})
+                return res
+            
             result = {}
             coll_names = ["adr_monthlyAvgs","occupancy_monthlyAvgs","revpar_monthlyAvgs"]
             for collection_name in coll_names:
@@ -298,9 +358,19 @@ class APIendpoints(connect_to_MongoDb):
                 {"$match":{"timestamp":{"$gte":start_ts_obj,"$lte":end_ts_obj},"metadata.str_id": {"$in": str_id_objIds},"tag_type":{"$exists":False},"metadata.label":{"$ne":"Your rank"}}},
                 # {"$group":{"_id":{"label":"$metadata.label"},"avg_change":{"$avg":"$change"}}},
                 # {"$project":{"_id":0,"label":"$_id.label","change":"$avg_change"}}
-                {"$group": {"_id": "$metadata.label","unique_changes": {"$addToSet": {"timestamp": "$timestamp","change": "$change","change_rate":"$change_rate"}}}},
-                {"$project": {"_id": 0,"label": "$_id","change": {"$avg": "$unique_changes.change"},"change_rate": {"$avg": "$unique_changes.change_rate"}}}
+                {"$group": {"_id": "$metadata.label","unique_changes": {"$addToSet": {"timestamp": "$timestamp","change": "$change"}}}},
+                {"$project": {"_id": 0,"label": "$_id","change": {"$avg": "$unique_changes.change"}}}
             ]
+            
+            collection = data.get("sheet",None)
+            if collection:
+                res = {}
+                res.update({"corporation":documents[0]["corporation_name"],
+                            "sheet":collection,
+                            "data":list(self.db[collection].aggregate(pipeline)),
+                            "status_code":200})
+                return res
+            
             result ={}
             coll_names = ["adr","occupancy","revpar"]
             for collection_name in coll_names:
@@ -435,3 +505,198 @@ class APIendpoints(connect_to_MongoDb):
         except Exception as err:
             raise HTTPException(status_code=500,detail=str(err))
     
+    def all_corps_week_data(self,data):
+        try:
+            result = []
+            corp_data = {
+                "startdate":data["startdate"],
+                "enddate":data["enddate"],
+                "sheet":data["sheet"]
+            }
+            corporations = data["corporations"]
+            for corp in corporations:
+                try:
+                    corp_data.update({"corporation_id":corp})
+                    corp_res = self.get_week_data(corp_data)
+                    result.append(corp_res)
+                except HTTPException as err:
+                    result.append({
+                                    "corporation_id": corp, 
+                                    "status": "error", 
+                                    "detail": str(err.detail),
+                                    "status_code": err.status_code
+                                })
+
+                except Exception as err:
+                    result.append({
+                                    "corporation_id": corp, 
+                                    "status": "error", 
+                                    "detail": str(err),
+                                    "status_code": 500
+                                })   
+            return result
+        except Exception as err :
+            raise HTTPException(status_code=500,detail=str(err))
+        
+    def all_corps_weekly_data(self,data):
+        try:
+            result = []
+            corp_data = {
+                "week_start_date":data["week_start_date"],
+                "week_end_date":data["week_end_date"],
+                "sheet":data["sheet"]
+            }
+            corporations = data["corporations"]
+            for corp in corporations:
+                try:
+                    corp_data.update({"corporation_id":corp})
+                    corp_res = self.get_weekly_data(corp_data)
+                    result.append(corp_res)
+                except HTTPException as err:
+                    result.append({
+                                    "corporation_id": corp, 
+                                    "status": "error", 
+                                    "detail": str(err.detail),
+                                    "status_code": err.status_code
+                                })
+
+                except Exception as err:
+                    result.append({
+                                    "corporation_id": corp, 
+                                    "status": "error", 
+                                    "detail": str(err),
+                                    "status_code": 500
+                                })   
+            return result
+        except Exception as err :
+            raise HTTPException(status_code=500,detail=str(err))    
+     
+    def all_corps_month_data(self,data):
+        try:
+            result = []
+            corp_data = {
+                "year":data["year"],
+                "month":data["month"],
+                "sheet":data["sheet"]
+            }
+            corporations = data["corporations"]
+            for corp in corporations:
+                try:
+                    corp_data.update({"corporation_id":corp})
+                    corp_res = self.get_month_data(corp_data)
+                    result.append(corp_res)
+                except HTTPException as err:
+                    result.append({
+                                    "corporation_id": corp, 
+                                    "status": "error", 
+                                    "detail": str(err.detail),
+                                    "status_code": err.status_code
+                                })
+
+                except Exception as err:
+                    result.append({
+                                    "corporation_id": corp, 
+                                    "status": "error", 
+                                    "detail": str(err),
+                                    "status_code": 500
+                                })   
+            return result
+        except Exception as err :
+            raise HTTPException(status_code=500,detail=str(err))    
+        
+    def all_corps_monthly_data(self,data):
+        try:
+            result = []
+            corp_data = {
+                "year":data["year"],
+                "sheet":data["sheet"]
+            }
+            corporations = data["corporations"]
+            for corp in corporations:
+                try:
+                    corp_data.update({"corporation_id":corp})
+                    corp_res = self.get_monthly_data(corp_data)
+                    result.append(corp_res)
+                except HTTPException as err:
+                    result.append({
+                                    "corporation_id": corp, 
+                                    "status": "error", 
+                                    "detail": str(err.detail),
+                                    "status_code": err.status_code
+                                })
+
+                except Exception as err:
+                    result.append({
+                                    "corporation_id": corp, 
+                                    "status": "error", 
+                                    "detail": str(err),
+                                    "status_code": 500
+                                })   
+            return result
+        except Exception as err :
+            raise HTTPException(status_code=500,detail=str(err))    
+        
+    def all_corps_yearly_data(self,data):
+        try:
+            result = []
+            corp_data = {
+                "years_selected":data["years_selected"],
+                "sheet":data["sheet"]
+            }
+            corporations = data["corporations"]
+            for corp in corporations:
+                try:
+                    corp_data.update({"corporation_id":corp})
+                    corp_res = self.get_yearly_data(corp_data)
+                    result.append(corp_res)
+                except HTTPException as err:
+                    result.append({
+                                    "corporation_id": corp, 
+                                    "status": "error", 
+                                    "detail": str(err.detail),
+                                    "status_code": err.status_code
+                                })
+
+                except Exception as err:
+                    result.append({
+                                    "corporation_id": corp, 
+                                    "status": "error", 
+                                    "detail": str(err),
+                                    "status_code": 500
+                                })   
+            return result
+        except Exception as err :
+            raise HTTPException(status_code=500,detail=str(err))  
+    
+    def all_corps_range_data(self,data):
+        try:
+            result = []
+            corp_data = {
+                "startdate":data["startdate"],
+                "enddate":data["enddate"],
+                "sheet":data["sheet"]
+            }
+            corporations = data["corporations"]
+            for corp in corporations:
+                try:
+                    corp_data.update({"corporation_id":corp})
+                    corp_res = self.get_range_data(corp_data)
+                    result.append(corp_res)
+                except HTTPException as err:
+                    result.append({
+                                    "corporation_id": corp, 
+                                    "status": "error", 
+                                    "detail": str(err.detail),
+                                    "status_code": err.status_code
+                                })
+
+                except Exception as err:
+                    result.append({
+                                    "corporation_id": corp, 
+                                    "status": "error", 
+                                    "detail": str(err),
+                                    "status_code": 500
+                                })   
+            return result
+        except Exception as err :
+            raise HTTPException(status_code=500,detail=str(err))

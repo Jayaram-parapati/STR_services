@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, Body, Form, Depends, status,File, UploadFile,Response,Query
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
 import uvicorn
 from datetime import datetime
 import uuid
@@ -16,7 +17,7 @@ from extraction_service.monthly_report_extraction import Monthly_extraction
 from extraction_service.toc_extraction import str_report_type
 from s3_service.s3_services import AWS_S3_Service 
 from mongo_service.data_endpoints import APIendpoints
-
+from mongo_service.basemodels import *
 
 weekly_extraction = Weekly_extraction()
 monthly_extraction=Monthly_extraction()
@@ -135,11 +136,13 @@ def upload_file(
         print("error while uploading the file")
         return JSONResponse({"messege": str(e),"status":500})
 
+#End Points for single Corporation data
 
 @app.post('/week',tags = ["data end points"])
-def week_data(data:Dict[str,str]=Body(...)):
+def week_data(data:WeekData):
     try:
-        result = api.get_week_data(data)
+        data_dict = data.model_dump()
+        result = api.get_week_data(data_dict)
         return result
     except HTTPException as e:
         raise e  
@@ -147,9 +150,10 @@ def week_data(data:Dict[str,str]=Body(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post('/weekly',tags = ["data end points"])
-def weekly_data(data:Dict[str,str]=Body(...)):
+def weekly_data(data:WeeklyData):
     try:
-        result = api.get_weekly_data(data)
+        data_dict = data.model_dump()
+        result = api.get_weekly_data(data_dict)
         return result
     except HTTPException as e:
         raise e  
@@ -157,9 +161,10 @@ def weekly_data(data:Dict[str,str]=Body(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post('/month',tags = ["data end points"])
-def month_data(data: Dict[str, str] = Body(...)):
+def month_data(data:MonthData):
     try:
-        result = api.get_month_data(data)
+        data_dict = data.model_dump()
+        result = api.get_month_data(data_dict)
         # print(result)
         return result
     except HTTPException as e:
@@ -167,11 +172,11 @@ def month_data(data: Dict[str, str] = Body(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
-
 @app.post('/monthly',tags = ["data end points"])
-def monthly_data(data:Dict[str,str]=Body(...)):
+def monthly_data(data:MonthlyData):
     try:
-        result = api.get_monthly_data(data)
+        data_dict = data.model_dump()
+        result = api.get_monthly_data(data_dict)
         # print(result)
         return result
     except HTTPException as e:
@@ -180,9 +185,10 @@ def monthly_data(data:Dict[str,str]=Body(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post('/yearly',tags = ["data end points"])
-def year_data(data:Dict[str,str]=Body(...)):
+def year_data(data:YearlyData):
     try:
-        result = api.get_yearly_data(data)
+        data_dict = data.model_dump()
+        result = api.get_yearly_data(data_dict)
         return result
     except HTTPException as e:
         raise e  
@@ -190,9 +196,10 @@ def year_data(data:Dict[str,str]=Body(...)):
         raise HTTPException(status_code=500, detail=str(e))
     
 @app.post('/range',tags = ["data end points"])
-def range_data(data:Dict[str,str]=Body(...)):
+def range_data(data:WeekData):
     try:
-        result = api.get_range_data(data)
+        data_dict = data.model_dump()
+        result = api.get_range_data(data_dict)
         return result
     except HTTPException as e:
         raise e  
@@ -228,6 +235,76 @@ def import_files(data:Dict[str,str]=Body(...)):
         raise e  
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+#End Points for All Corporations data
+
+@app.post('/all_corporations_week',tags=["All Corporations Data Endpoints"])
+def all_corps_weekData(data:AllCorpWeekData):
+    try:
+        data_dict = data.model_dump()
+        result = api.all_corps_week_data(data_dict)
+        return result
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500,detail=str(e))
+
+@app.post('/all_corporations_weekly',tags=["All Corporations Data Endpoints"])
+def all_corps_weeklyData(data:AllCorpWeeklyData):
+    try:
+        data_dict = data.model_dump()
+        result = api.all_corps_weekly_data(data_dict)
+        return result
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500,detail=str(e))
+
+@app.post('/all_corporations_month',tags=["All Corporations Data Endpoints"])
+def all_corps_monthData(data:AllCorpMonthData):
+    try:
+        data_dict = data.model_dump()
+        result = api.all_corps_month_data(data_dict)
+        return result
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500,detail=str(e))
+
+@app.post('/all_corporations_monthly',tags=["All Corporations Data Endpoints"])
+def all_corps_monthlyData(data:AllCorpMonthlyData):
+    try:
+        data_dict = data.model_dump()
+        result = api.all_corps_monthly_data(data_dict)
+        return result
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500,detail=str(e))
+
+@app.post('/all_corporations_yearly',tags=["All Corporations Data Endpoints"])
+def all_corps_yearlyData(data:AllCorpYearlyData):
+    try:
+        data_dict = data.model_dump()
+        result = api.all_corps_yearly_data(data_dict)
+        return result
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500,detail=str(e))
+
+@app.post('/all_corporations_range',tags=["All Corporations Data Endpoints"])
+def all_corps_rangeData(data:AllCorpWeekData):
+    try:
+        data_dict = data.model_dump()
+        result = api.all_corps_range_data(data_dict)
+        return result
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500,detail=str(e))
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8000)
