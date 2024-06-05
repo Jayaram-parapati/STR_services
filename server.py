@@ -306,5 +306,19 @@ def all_corps_rangeData(data:AllCorpWeekData):
         raise HTTPException(status_code=500,detail=str(e))
 
 
+# Endpoints for latest imported file
+
+@app.post('/latestUploadFile',tags=["latest upload"])
+def latest_upload_file(data_dict:latestUploadData):
+    try:
+        data = data_dict.model_dump()
+        corp_id = data["corporation_id"]
+        coll = data["type"]
+        collection = coll+"_uploads"
+        res = list(db[collection].find({"corporation_id":corp_id},{"_id": 0, "extraction_report_id": 0}).sort("date_range", -1).limit(1))
+        return res
+    except Exception as e:
+        print(e)
+            
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8000)

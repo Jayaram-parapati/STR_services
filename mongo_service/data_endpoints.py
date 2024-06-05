@@ -43,17 +43,24 @@ class APIendpoints(connect_to_MongoDb):
                 {"$match":{"timestamp":{"$gte":start_ts_obj,"$lte":end_ts_obj},"metadata.str_id": ObjectId(str_id_objId)}},
                 {"$project":{"_id":0,"metadata.str_id":0,"change_rate":0}}
             ]
-            
+            response_data = {"corporation_name":obj["corporation_name"],
+                            "corporation_id":obj["corporation_id"],
+                            "profitcneter_id":obj["profit_center_id"],
+                            "str_id":obj["str_id"],
+                            "status_code":200,
+                            "detail":"Data retrieved successfully"}
             collection = data.get("sheet",None)
             if collection:
                 res = {}
-                res.update({"corporation":obj["corporation_name"],
+                res.update(response_data)
+                res.update({
                             "sheet":collection,
-                            "data":list(self.db[collection].aggregate(pipeline)),
-                            "status_code":200})
+                            "data":list(self.db[collection].aggregate(pipeline))
+                        })
                 return res
             
             result ={}
+            result.update(response_data)
             coll_names = ["adr","occupancy","revpar"]
             for collection_name in coll_names:
                 result.update({collection_name:list(self.db[collection_name].aggregate(pipeline))})
@@ -98,17 +105,24 @@ class APIendpoints(connect_to_MongoDb):
                 {"$match":{"timestamp":{"$gte":start_ts_obj,"$lte":end_ts_obj},"metadata.str_id": {"$in": str_id_objIds},"tag_type":{"$eq":"Current Week"}}},
                 {"$project":{"_id":0,"metadata.str_id":0,"change_rate":0}}
             ]
-            
+            response_data = {"corporation_name":documents[0]["corporation_name"],
+                            "corporation_id":documents[0]["corporation_id"],
+                            "profitcneter_id":documents[0]["profit_center_id"],
+                            "str_id":documents[0]["str_id"],
+                            "status_code":200,
+                            "detail":"Data retrieved successfully"}
             collection = data.get("sheet",None)
             if collection:
                 res = {}
-                res.update({"corporation":documents[0]["corporation_name"],
+                res.update(response_data)
+                res.update({
                             "sheet":collection,
-                            "data":list(self.db[collection].aggregate(pipeline)),
-                            "status_code":200})
+                            "data":list(self.db[collection].aggregate(pipeline))
+                            })
                 return res
             
             result ={}
+            result.update(response_data)
             coll_names = ["adr","occupancy","revpar"]
             for collection_name in coll_names:
                 result.update({collection_name:list(self.db[collection_name].aggregate(pipeline))})
@@ -168,22 +182,30 @@ class APIendpoints(connect_to_MongoDb):
                 {"$match":{"timestamp":{"$eq":start_ts_obj},"metadata.str_id": ObjectId(str_id_objId),"tag_type":{"$exists":True}}},
                 {"$project":{"_id":0,"metadata.str_id":0,"change_rate":0}}
             ]
-            
+            response_data = {"corporation_name":obj["corporation_name"],
+                            "corporation_id":obj["corporation_id"],
+                            "profitcneter_id":obj["profit_center_id"],
+                            "str_id":obj["str_id"],
+                            "status_code":200,
+                            "detail":"Data retrieved successfully"}
             collection = data.get("sheet",None)
             if collection:
                 res = {}
                 coll_name = collection+"_monthlyAvgs"
-                res.update({coll_name:{"corporation":obj["corporation_name"],
+                res.update({coll_name:{
                             "sheet":collection,
-                            "data":list(self.db[coll_name].aggregate(pipeline)),
-                            "status_code":200}})
-                res.update({coll_name+"_glance":{"corporation":obj["corporation_name"],
+                            "data":list(self.db[coll_name].aggregate(pipeline))
+                            }})
+                res[coll_name].update(response_data)
+                res.update({coll_name+"_glance":{
                             "sheet":collection,
-                            "data":list(self.db[coll_name].aggregate(pipeline1)),
-                            "status_code":200}})
+                            "data":list(self.db[coll_name].aggregate(pipeline1))
+                            }})
+                res[coll_name+"_glance"].update(response_data)
                 return res
             
             result={}
+            result.update(response_data)
             coll_names = ["adr_monthlyAvgs","occupancy_monthlyAvgs","revpar_monthlyAvgs"]
             for collection_name in coll_names:
                 result.update({collection_name:list(self.db[collection_name].aggregate(pipeline))})
@@ -231,18 +253,25 @@ class APIendpoints(connect_to_MongoDb):
                 {"$project": {"_id": 0,"timestamp": "$_id.timestamp","label":"$_id.label","change": "$unique_change"}},
                 {"$sort":{"timestamp":1}}
             ]
-            
+            response_data = {"corporation_name":documents[0]["corporation_name"],
+                            "corporation_id":documents[0]["corporation_id"],
+                            "profitcneter_id":documents[0]["profit_center_id"],
+                            "str_id":documents[0]["str_id"],
+                            "status_code":200,
+                            "detail":"Data retrieved successfully"}
             collection = data.get("sheet",None)
             if collection:
                 res = {}
+                res.update(response_data)
                 coll_name = collection+"_monthlyAvgs"
-                res.update({"corporation":documents[0]["corporation_name"],
+                res.update({
                             "sheet":collection,
                             "data":list(self.db[coll_name].aggregate(pipeline)),
-                            "status_code":200})
+                            })
                 return res
             
             result ={}
+            result.update(response_data)
             coll_names = ["adr_monthlyAvgs","occupancy_monthlyAvgs","revpar_monthlyAvgs"]
             for collection_name in coll_names:
                 result.update({collection_name.split('_')[0]:list(self.db[collection_name].aggregate(pipeline))})
@@ -304,18 +333,25 @@ class APIendpoints(connect_to_MongoDb):
                             "else":{"$concat":[{"$toString":{"$round":"$avg_change"}}," of 5"]}}}}},
                 {"$sort":{"year":1}}
             ]
-            
+            response_data = {"corporation_name":documents[0]["corporation_name"],
+                            "corporation_id":documents[0]["corporation_id"],
+                            "profitcneter_id":documents[0]["profit_center_id"],
+                            "str_id":documents[0]["str_id"],
+                            "status_code":200,
+                            "detail":"Data retrieved successfully"}
             collection = data.get("sheet",None)
             if collection:
                 res = {}
+                res.update(response_data)
                 coll_name = collection+"_monthlyAvgs"
-                res.update({"corporation":documents[0]["corporation_name"],
+                res.update({
                             "sheet":collection,
                             "data":list(self.db[coll_name].aggregate(pipeline)),
-                            "status_code":200})
+                            })
                 return res
             
             result = {}
+            result.update(response_data)
             coll_names = ["adr_monthlyAvgs","occupancy_monthlyAvgs","revpar_monthlyAvgs"]
             for collection_name in coll_names:
                 result.update({collection_name.split('_')[0]:list(self.db[collection_name].aggregate(pipeline))})
@@ -361,17 +397,24 @@ class APIendpoints(connect_to_MongoDb):
                 {"$group": {"_id": "$metadata.label","unique_changes": {"$addToSet": {"timestamp": "$timestamp","change": "$change"}}}},
                 {"$project": {"_id": 0,"label": "$_id","change": {"$avg": "$unique_changes.change"}}}
             ]
-            
+            response_data = {"corporation_name":documents[0]["corporation_name"],
+                            "corporation_id":documents[0]["corporation_id"],
+                            "profitcneter_id":documents[0]["profit_center_id"],
+                            "str_id":documents[0]["str_id"],
+                            "status_code":200,
+                            "detail":"Data retrieved successfully"}
             collection = data.get("sheet",None)
             if collection:
                 res = {}
-                res.update({"corporation":documents[0]["corporation_name"],
+                res.update(response_data)
+                res.update({
                             "sheet":collection,
                             "data":list(self.db[collection].aggregate(pipeline)),
-                            "status_code":200})
+                            })
                 return res
             
             result ={}
+            result.update(response_data)
             coll_names = ["adr","occupancy","revpar"]
             for collection_name in coll_names:
                 result.update({collection_name:list(self.db[collection_name].aggregate(pipeline))})

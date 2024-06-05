@@ -51,6 +51,10 @@ class AllCorpMonthlyData(listOfCorporations):
 class AllCorpYearlyData(listOfCorporations):
     years_selected:str = Field(...,example="2")   
     
-     
-            
+# latest upload file basemodel 
+
+class latestUploadData(BaseModel):
+    type:str = Field(...,example="Weekly")
+    corporation_id:str = Field(...,example="0x0A3BF741342744B043FFAA6EE07AB7270000")
         
+       
