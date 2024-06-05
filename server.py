@@ -68,7 +68,7 @@ def upload_file(
                 
                 filedata = {
                     "file_name": fname,
-                    "s3_key": unique_filename,
+                    "s3_key": f"https://hgtech-str-files.s3.ap-south-1.amazonaws.com/{unique_filename}",
                     "upload_date": _ts,
                     "delete_status":0,
                     "corporation_name": corporation_name,
