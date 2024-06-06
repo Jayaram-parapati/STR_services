@@ -316,9 +316,27 @@ def latest_upload_file(data_dict:latestUploadData):
         coll = data["type"]
         collection = coll+"_uploads"
         res = list(db[collection].find({"corporation_id":corp_id},{"_id": 0, "extraction_report_id": 0}).sort("date_range", -1).limit(1))
-        return res
+        if len(res) == 0:
+            result={
+                "data":[],
+                "status_code":400,
+                "detail":"No Data found"
+            }
+            return result
+        result ={
+            "data":res,
+            "status_code":200,
+            "detail":"Data retrieved successfully"
+        }
+        return result
     except Exception as e:
-        print(e)
-            
+        result = {
+                "status_code":500,
+                "detail":"No data found",
+                "error":str(e)
+            }
+        return result
+
+         
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8000)
