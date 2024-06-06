@@ -82,7 +82,12 @@ class APIendpoints(connect_to_MongoDb):
                 result.update({"detail":"No data found"})    
             return result
         except Exception as err:
-            raise HTTPException(status_code=500,detail=str(err))
+            result = {
+                "status_code":500,
+                "detail":"No detail found",
+                "error":str(err)
+            }
+            return result
         
     def get_weekly_data(self,data):
         try:
@@ -156,7 +161,12 @@ class APIendpoints(connect_to_MongoDb):
                 result.update({"detail":"No data found"})    
             return result
         except Exception as err:
-            raise HTTPException(status_code=500,detail=str(err)) 
+            result = {
+                "status_code":500,
+                "detail":"No detail found",
+                "error":str(err)
+            }
+            return result 
     
     def get_month_data(self,data):
         try:
@@ -250,7 +260,12 @@ class APIendpoints(connect_to_MongoDb):
                 result.update({"detail":"No data found"})    
             return result 
         except Exception as err:
-            raise HTTPException(status_code=500,detail=str(err))
+            result = {
+                "status_code":500,
+                "detail":"No detail found",
+                "error":str(err)
+            }
+            return result
         
     def get_monthly_data(self,data):
         try:
@@ -327,7 +342,12 @@ class APIendpoints(connect_to_MongoDb):
                 result.update({"detail":"No data found"})    
             return result 
         except Exception as err:
-            raise HTTPException(status_code=500,detail=str(err)) 
+            result = {
+                "status_code":500,
+                "detail":"No detail found",
+                "error":str(err)
+            }
+            return result 
         
     def get_yearly_data(self,data):
         try:
@@ -418,7 +438,12 @@ class APIendpoints(connect_to_MongoDb):
                 result.update({"detail":"No data found"})    
             return result 
         except Exception as err:
-            raise HTTPException(status_code=500,detail=str(err)) 
+            result = {
+                "status_code":500,
+                "detail":"No detail found",
+                "error":str(err)
+            }
+            return result 
         
     def get_range_data(self,data):
         try:
@@ -495,7 +520,12 @@ class APIendpoints(connect_to_MongoDb):
                 result.update({"detail":"No data found"})    
             return result 
         except Exception as err:
-            raise HTTPException(status_code=500,detail=str(err)) 
+            result = {
+                "status_code":500,
+                "detail":"No detail found",
+                "error":str(err)
+            }
+            return result 
         
     def check_upload_file(self,fname,str_id,date,reportType):
         query = {
@@ -636,12 +666,7 @@ class APIendpoints(connect_to_MongoDb):
                     if data_list:
                         all_corp_res.append(corp_res)
                 except Exception as err:
-                    all_corp_res.append({
-                                    "corporation_id": corp, 
-                                    "status": "error", 
-                                    "detail": str(err),
-                                    "status_code": 500
-                                })
+                    pass
                    
             if len(all_corp_res) == 0:
                 empty_res = {
@@ -657,7 +682,12 @@ class APIendpoints(connect_to_MongoDb):
             }
             return result
         except Exception as err :
-            raise HTTPException(status_code=500,detail=str(err))
+            result = {
+                "status_code":500,
+                "detail":"No detail found",
+                "error":str(err)
+            }
+            return result
         
     def all_corps_weekly_data(self,data):
         try:
@@ -677,12 +707,7 @@ class APIendpoints(connect_to_MongoDb):
                         all_corp_res.append(corp_res)
                 
                 except Exception as err:
-                    all_corp_res.append({
-                                    "corporation_id": corp, 
-                                    "status": "error", 
-                                    "detail": str(err),
-                                    "status_code": 500
-                                })
+                    pass
             if len(all_corp_res) == 0:
                 empty_res = {
                     "data":[],
@@ -697,7 +722,12 @@ class APIendpoints(connect_to_MongoDb):
             }
             return result
         except Exception as err :
-            raise HTTPException(status_code=500,detail=str(err))    
+            result = {
+                "status_code":500,
+                "detail":"No detail found",
+                "error":str(err)
+            }
+            return result   
      
     def all_corps_month_data(self,data):
         try:
@@ -719,12 +749,7 @@ class APIendpoints(connect_to_MongoDb):
                         if data_list:
                             all_corp_res.append(corp_res)
                 except Exception as err:
-                    all_corp_res.append({
-                                    "corporation_id": corp, 
-                                    "status": "error", 
-                                    "detail": str(err),
-                                    "status_code": 500
-                                })
+                    pass
             if len(all_corp_res) == 0:
                 empty_res = {
                     "data":[],
@@ -739,7 +764,12 @@ class APIendpoints(connect_to_MongoDb):
             }
             return result
         except Exception as err :
-            raise HTTPException(status_code=500,detail=str(err))    
+            result = {
+                "status_code":500,
+                "detail":"No detail found",
+                "error":str(err)
+            }
+            return result    
         
     def all_corps_monthly_data(self,data):
         try:
@@ -757,12 +787,7 @@ class APIendpoints(connect_to_MongoDb):
                     if data_list:
                         all_corp_res.append(corp_res)
                 except Exception as err:
-                    all_corp_res.append({
-                                    "corporation_id": corp, 
-                                    "status": "error", 
-                                    "detail": str(err),
-                                    "status_code": 500
-                                })   
+                    pass
             if len(all_corp_res) == 0:
                 empty_res = {
                     "data":[],
@@ -777,7 +802,12 @@ class APIendpoints(connect_to_MongoDb):
             }
             return result
         except Exception as err :
-            raise HTTPException(status_code=500,detail=str(err))    
+            result = {
+                "status_code":500,
+                "detail":"No detail found",
+                "error":str(err)
+            }
+            return result    
         
     def all_corps_yearly_data(self,data):
         try:
@@ -795,12 +825,7 @@ class APIendpoints(connect_to_MongoDb):
                     if data_list:
                         all_corp_res.append(corp_res)
                 except Exception as err:
-                    all_corp_res.append({
-                                    "corporation_id": corp, 
-                                    "status": "error", 
-                                    "detail": str(err),
-                                    "status_code": 500
-                                })   
+                    pass   
             if len(all_corp_res) == 0:
                 empty_res = {
                     "data":[],
@@ -815,7 +840,12 @@ class APIendpoints(connect_to_MongoDb):
             }
             return result
         except Exception as err :
-            raise HTTPException(status_code=500,detail=str(err))  
+            result = {
+                "status_code":500,
+                "detail":"No detail found",
+                "error":str(err)
+            }
+            return result  
     
     def all_corps_range_data(self,data):
         try:
@@ -834,12 +864,7 @@ class APIendpoints(connect_to_MongoDb):
                     if data_list:
                         all_corp_res.append(corp_res)
                 except Exception as err:
-                    all_corp_res.append({
-                                    "corporation_id": corp, 
-                                    "status": "error", 
-                                    "detail": str(err),
-                                    "status_code": 500
-                                })   
+                    pass   
             if len(all_corp_res) == 0:
                 empty_res = {
                     "data":[],
@@ -854,4 +879,9 @@ class APIendpoints(connect_to_MongoDb):
             }
             return result
         except Exception as err :
-            raise HTTPException(status_code=500,detail=str(err))
+            result = {
+                "status_code":500,
+                "detail":"No detail found",
+                "error":str(err)
+            }
+            return result
