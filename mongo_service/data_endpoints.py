@@ -47,8 +47,7 @@ class APIendpoints(connect_to_MongoDb):
                             "corporation_id":obj["corporation_id"],
                             "profitcneter_id":obj["profit_center_id"],
                             "str_id":obj["str_id"],
-                            "status_code":200,
-                            "detail":"Data retrieved successfully"}
+                            }
             collection = data.get("sheet",None)
             if collection:
                 res = {}
@@ -60,6 +59,7 @@ class APIendpoints(connect_to_MongoDb):
                 return res
             
             result ={}
+            response_data.update({"status_code":200,"detail":"Data retrieved successfully"})
             result.update(response_data)
             coll_names = ["adr","occupancy","revpar"]
             for collection_name in coll_names:
@@ -68,7 +68,19 @@ class APIendpoints(connect_to_MongoDb):
             return result
         
         except HTTPException as err:
-            raise err 
+            result = {
+                "status_code":400
+            }
+            res = self.db.Weekly_uploads.find_one({"corporation_id":corp_id},{"_id":0,"extraction_report_id":0})
+            if res:
+                corp_name = res["corporation_name"]
+                result.update({
+                    "corporation_name":corp_name,
+                    "detail": f"No data found for {corp_name}",
+                })
+            else:
+                result.update({"detail":"No data found"})    
+            return result
         except Exception as err:
             raise HTTPException(status_code=500,detail=str(err))
         
@@ -109,8 +121,7 @@ class APIendpoints(connect_to_MongoDb):
                             "corporation_id":documents[0]["corporation_id"],
                             "profitcneter_id":documents[0]["profit_center_id"],
                             "str_id":documents[0]["str_id"],
-                            "status_code":200,
-                            "detail":"Data retrieved successfully"}
+                            }
             collection = data.get("sheet",None)
             if collection:
                 res = {}
@@ -122,6 +133,7 @@ class APIendpoints(connect_to_MongoDb):
                 return res
             
             result ={}
+            response_data.update({"status_code":200,"detail":"Data retrieved successfully"})
             result.update(response_data)
             coll_names = ["adr","occupancy","revpar"]
             for collection_name in coll_names:
@@ -130,7 +142,19 @@ class APIendpoints(connect_to_MongoDb):
             return result
          
         except HTTPException as err:
-            raise err 
+            result = {
+                "status_code":400
+            }
+            res = self.db.Weekly_uploads.find_one({"corporation_id":corp_id},{"_id":0,"extraction_report_id":0})
+            if res:
+                corp_name = res["corporation_name"]
+                result.update({
+                    "corporation_name":corp_name,
+                    "detail": f"No data found for {corp_name}",
+                })
+            else:
+                result.update({"detail":"No data found"})    
+            return result
         except Exception as err:
             raise HTTPException(status_code=500,detail=str(err)) 
     
@@ -186,25 +210,24 @@ class APIendpoints(connect_to_MongoDb):
                             "corporation_id":obj["corporation_id"],
                             "profitcneter_id":obj["profit_center_id"],
                             "str_id":obj["str_id"],
-                            "status_code":200,
-                            "detail":"Data retrieved successfully"}
+                            }
             collection = data.get("sheet",None)
             if collection:
                 res = {}
                 coll_name = collection+"_monthlyAvgs"
+                res.update(response_data)
                 res.update({coll_name:{
                             "sheet":collection,
                             "data":list(self.db[coll_name].aggregate(pipeline))
                             }})
-                res[coll_name].update(response_data)
                 res.update({coll_name+"_glance":{
                             "sheet":collection,
                             "data":list(self.db[coll_name].aggregate(pipeline1))
                             }})
-                res[coll_name+"_glance"].update(response_data)
                 return res
             
             result={}
+            response_data.update({"status_code":200,"detail":"Data retrieved successfully"})
             result.update(response_data)
             coll_names = ["adr_monthlyAvgs","occupancy_monthlyAvgs","revpar_monthlyAvgs"]
             for collection_name in coll_names:
@@ -213,7 +236,19 @@ class APIendpoints(connect_to_MongoDb):
             # print(result)
             return result
         except HTTPException as err:
-            raise err 
+            result = {
+                "status_code":400
+            }
+            res = self.db.Monthly_uploads.find_one({"corporation_id":corp_id},{"_id":0,"extraction_report_id":0})
+            if res:
+                corp_name = res["corporation_name"]
+                result.update({
+                    "corporation_name":corp_name,
+                    "detail": f"No data found for {corp_name}",
+                })
+            else:
+                result.update({"detail":"No data found"})    
+            return result 
         except Exception as err:
             raise HTTPException(status_code=500,detail=str(err))
         
@@ -257,8 +292,7 @@ class APIendpoints(connect_to_MongoDb):
                             "corporation_id":documents[0]["corporation_id"],
                             "profitcneter_id":documents[0]["profit_center_id"],
                             "str_id":documents[0]["str_id"],
-                            "status_code":200,
-                            "detail":"Data retrieved successfully"}
+                            }
             collection = data.get("sheet",None)
             if collection:
                 res = {}
@@ -271,6 +305,7 @@ class APIendpoints(connect_to_MongoDb):
                 return res
             
             result ={}
+            response_data.update({"status_code":200,"detail":"Data retrieved successfully"})
             result.update(response_data)
             coll_names = ["adr_monthlyAvgs","occupancy_monthlyAvgs","revpar_monthlyAvgs"]
             for collection_name in coll_names:
@@ -278,7 +313,19 @@ class APIendpoints(connect_to_MongoDb):
             # print(result)
             return result
         except HTTPException as err:
-            raise err 
+            result = {
+                "status_code":400
+            }
+            res = self.db.Monthly_uploads.find_one({"corporation_id":corp_id},{"_id":0,"extraction_report_id":0})
+            if res:
+                corp_name = res["corporation_name"]
+                result.update({
+                    "corporation_name":corp_name,
+                    "detail": f"No data found for {corp_name}",
+                })
+            else:
+                result.update({"detail":"No data found"})    
+            return result 
         except Exception as err:
             raise HTTPException(status_code=500,detail=str(err)) 
         
@@ -337,8 +384,7 @@ class APIendpoints(connect_to_MongoDb):
                             "corporation_id":documents[0]["corporation_id"],
                             "profitcneter_id":documents[0]["profit_center_id"],
                             "str_id":documents[0]["str_id"],
-                            "status_code":200,
-                            "detail":"Data retrieved successfully"}
+                            }
             collection = data.get("sheet",None)
             if collection:
                 res = {}
@@ -351,13 +397,26 @@ class APIendpoints(connect_to_MongoDb):
                 return res
             
             result = {}
+            response_data.update({"status_code":200,"detail":"Data retrieved successfully"})
             result.update(response_data)
             coll_names = ["adr_monthlyAvgs","occupancy_monthlyAvgs","revpar_monthlyAvgs"]
             for collection_name in coll_names:
                 result.update({collection_name.split('_')[0]:list(self.db[collection_name].aggregate(pipeline))})
             return result
         except HTTPException as err:
-            raise err 
+            result = {
+                "status_code":400
+            }
+            res = self.db.Monthly_uploads.find_one({"corporation_id":corp_id},{"_id":0,"extraction_report_id":0})
+            if res:
+                corp_name = res["corporation_name"]
+                result.update({
+                    "corporation_name":corp_name,
+                    "detail": f"No data found for {corp_name}",
+                })
+            else:
+                result.update({"detail":"No data found"})    
+            return result 
         except Exception as err:
             raise HTTPException(status_code=500,detail=str(err)) 
         
@@ -401,8 +460,7 @@ class APIendpoints(connect_to_MongoDb):
                             "corporation_id":documents[0]["corporation_id"],
                             "profitcneter_id":documents[0]["profit_center_id"],
                             "str_id":documents[0]["str_id"],
-                            "status_code":200,
-                            "detail":"Data retrieved successfully"}
+                            }
             collection = data.get("sheet",None)
             if collection:
                 res = {}
@@ -414,6 +472,7 @@ class APIendpoints(connect_to_MongoDb):
                 return res
             
             result ={}
+            response_data.update({"status_code":200,"detail":"Data retrieved successfully"})
             result.update(response_data)
             coll_names = ["adr","occupancy","revpar"]
             for collection_name in coll_names:
@@ -422,7 +481,19 @@ class APIendpoints(connect_to_MongoDb):
             return result
          
         except HTTPException as err:
-            raise err 
+            result = {
+                "status_code":400
+            }
+            res = self.db.Weekly_uploads.find_one({"corporation_id":corp_id},{"_id":0,"extraction_report_id":0})
+            if res:
+                corp_name = res["corporation_name"]
+                result.update({
+                    "corporation_name":corp_name,
+                    "detail": f"No data found for {corp_name}",
+                })
+            else:
+                result.update({"detail":"No data found"})    
+            return result 
         except Exception as err:
             raise HTTPException(status_code=500,detail=str(err)) 
         
@@ -550,7 +621,7 @@ class APIendpoints(connect_to_MongoDb):
     
     def all_corps_week_data(self,data):
         try:
-            result = []
+            all_corp_res = []
             corp_data = {
                 "startdate":data["startdate"],
                 "enddate":data["enddate"],
@@ -561,29 +632,36 @@ class APIendpoints(connect_to_MongoDb):
                 try:
                     corp_data.update({"corporation_id":corp})
                     corp_res = self.get_week_data(corp_data)
-                    result.append(corp_res)
-                except HTTPException as err:
-                    result.append({
-                                    "corporation_id": corp, 
-                                    "status": "error", 
-                                    "detail": str(err.detail),
-                                    "status_code": err.status_code
-                                })
-
+                    data_list = corp_res.get("data",None)
+                    if data_list:
+                        all_corp_res.append(corp_res)
                 except Exception as err:
-                    result.append({
+                    all_corp_res.append({
                                     "corporation_id": corp, 
                                     "status": "error", 
                                     "detail": str(err),
                                     "status_code": 500
-                                })   
+                                })
+                   
+            if len(all_corp_res) == 0:
+                empty_res = {
+                    "data":[],
+                    "detail":"No data found",
+                    "status_code":400
+                }
+                return empty_res
+            result = {
+                "data":all_corp_res,
+                "detail":"Data retrieved successfully",
+                "status_code":200
+            }
             return result
         except Exception as err :
             raise HTTPException(status_code=500,detail=str(err))
         
     def all_corps_weekly_data(self,data):
         try:
-            result = []
+            all_corp_res = []
             corp_data = {
                 "week_start_date":data["week_start_date"],
                 "week_end_date":data["week_end_date"],
@@ -594,29 +672,36 @@ class APIendpoints(connect_to_MongoDb):
                 try:
                     corp_data.update({"corporation_id":corp})
                     corp_res = self.get_weekly_data(corp_data)
-                    result.append(corp_res)
-                except HTTPException as err:
-                    result.append({
-                                    "corporation_id": corp, 
-                                    "status": "error", 
-                                    "detail": str(err.detail),
-                                    "status_code": err.status_code
-                                })
-
+                    data_list = corp_res.get("data",None)
+                    if data_list:
+                        all_corp_res.append(corp_res)
+                
                 except Exception as err:
-                    result.append({
+                    all_corp_res.append({
                                     "corporation_id": corp, 
                                     "status": "error", 
                                     "detail": str(err),
                                     "status_code": 500
-                                })   
+                                })
+            if len(all_corp_res) == 0:
+                empty_res = {
+                    "data":[],
+                    "detail":"No data found",
+                    "status_code":400
+                }
+                return empty_res
+            result = {
+                "data":all_corp_res,
+                "detail":"Data retrieved successfully",
+                "status_code":200
+            }
             return result
         except Exception as err :
             raise HTTPException(status_code=500,detail=str(err))    
      
     def all_corps_month_data(self,data):
         try:
-            result = []
+            all_corp_res = []
             corp_data = {
                 "year":data["year"],
                 "month":data["month"],
@@ -627,29 +712,38 @@ class APIendpoints(connect_to_MongoDb):
                 try:
                     corp_data.update({"corporation_id":corp})
                     corp_res = self.get_month_data(corp_data)
-                    result.append(corp_res)
-                except HTTPException as err:
-                    result.append({
-                                    "corporation_id": corp, 
-                                    "status": "error", 
-                                    "detail": str(err.detail),
-                                    "status_code": err.status_code
-                                })
-
+                    obj = data["sheet"]+"_monthlyAvgs"
+                    data_obj = corp_res.get(obj,None)
+                    if data_obj:
+                        data_list = data_obj.get("data",None)
+                        if data_list:
+                            all_corp_res.append(corp_res)
                 except Exception as err:
-                    result.append({
+                    all_corp_res.append({
                                     "corporation_id": corp, 
                                     "status": "error", 
                                     "detail": str(err),
                                     "status_code": 500
-                                })   
+                                })
+            if len(all_corp_res) == 0:
+                empty_res = {
+                    "data":[],
+                    "detail":"No data found",
+                    "status_code":400
+                }
+                return empty_res
+            result = {
+                "data":all_corp_res,
+                "detail":"Data retrieved successfully",
+                "status_code":200
+            }
             return result
         except Exception as err :
             raise HTTPException(status_code=500,detail=str(err))    
         
     def all_corps_monthly_data(self,data):
         try:
-            result = []
+            all_corp_res = []
             corp_data = {
                 "year":data["year"],
                 "sheet":data["sheet"]
@@ -659,29 +753,35 @@ class APIendpoints(connect_to_MongoDb):
                 try:
                     corp_data.update({"corporation_id":corp})
                     corp_res = self.get_monthly_data(corp_data)
-                    result.append(corp_res)
-                except HTTPException as err:
-                    result.append({
-                                    "corporation_id": corp, 
-                                    "status": "error", 
-                                    "detail": str(err.detail),
-                                    "status_code": err.status_code
-                                })
-
+                    data_list = corp_res.get("data",None)
+                    if data_list:
+                        all_corp_res.append(corp_res)
                 except Exception as err:
-                    result.append({
+                    all_corp_res.append({
                                     "corporation_id": corp, 
                                     "status": "error", 
                                     "detail": str(err),
                                     "status_code": 500
                                 })   
+            if len(all_corp_res) == 0:
+                empty_res = {
+                    "data":[],
+                    "detail":"No data found",
+                    "status_code":400
+                }
+                return empty_res
+            result = {
+                "data":all_corp_res,
+                "detail":"Data retrieved successfully",
+                "status_code":200
+            }
             return result
         except Exception as err :
             raise HTTPException(status_code=500,detail=str(err))    
         
     def all_corps_yearly_data(self,data):
         try:
-            result = []
+            all_corp_res = []
             corp_data = {
                 "years_selected":data["years_selected"],
                 "sheet":data["sheet"]
@@ -691,29 +791,35 @@ class APIendpoints(connect_to_MongoDb):
                 try:
                     corp_data.update({"corporation_id":corp})
                     corp_res = self.get_yearly_data(corp_data)
-                    result.append(corp_res)
-                except HTTPException as err:
-                    result.append({
-                                    "corporation_id": corp, 
-                                    "status": "error", 
-                                    "detail": str(err.detail),
-                                    "status_code": err.status_code
-                                })
-
+                    data_list = corp_res.get("data",None)
+                    if data_list:
+                        all_corp_res.append(corp_res)
                 except Exception as err:
-                    result.append({
+                    all_corp_res.append({
                                     "corporation_id": corp, 
                                     "status": "error", 
                                     "detail": str(err),
                                     "status_code": 500
                                 })   
+            if len(all_corp_res) == 0:
+                empty_res = {
+                    "data":[],
+                    "detail":"No data found",
+                    "status_code":400
+                }
+                return empty_res
+            result = {
+                "data":all_corp_res,
+                "detail":"Data retrieved successfully",
+                "status_code":200
+            }
             return result
         except Exception as err :
             raise HTTPException(status_code=500,detail=str(err))  
     
     def all_corps_range_data(self,data):
         try:
-            result = []
+            all_corp_res = []
             corp_data = {
                 "startdate":data["startdate"],
                 "enddate":data["enddate"],
@@ -724,22 +830,28 @@ class APIendpoints(connect_to_MongoDb):
                 try:
                     corp_data.update({"corporation_id":corp})
                     corp_res = self.get_range_data(corp_data)
-                    result.append(corp_res)
-                except HTTPException as err:
-                    result.append({
-                                    "corporation_id": corp, 
-                                    "status": "error", 
-                                    "detail": str(err.detail),
-                                    "status_code": err.status_code
-                                })
-
+                    data_list = corp_res.get("data",None)
+                    if data_list:
+                        all_corp_res.append(corp_res)
                 except Exception as err:
-                    result.append({
+                    all_corp_res.append({
                                     "corporation_id": corp, 
                                     "status": "error", 
                                     "detail": str(err),
                                     "status_code": 500
                                 })   
+            if len(all_corp_res) == 0:
+                empty_res = {
+                    "data":[],
+                    "detail":"No data found",
+                    "status_code":400
+                }
+                return empty_res
+            result = {
+                "data":all_corp_res,
+                "detail":"Data retrieved successfully",
+                "status_code":200
+            }
             return result
         except Exception as err :
             raise HTTPException(status_code=500,detail=str(err))
