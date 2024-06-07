@@ -231,10 +231,13 @@ def import_files(data:Dict[str,str]=Body(...)):
             result.update({"Weekly":api.get_import_files_weekly(query_params)})
 
         return result
-    except HTTPException as e:
-        raise e  
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        result = {
+                "status_code":500,
+                "detail":"No data found",
+                "error":str(e)
+            }
+        return result
 
 
 #End Points for All Corporations data
@@ -337,6 +340,7 @@ def latest_upload_file(data_dict:latestUploadData):
             }
         return result
 
+    
          
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8000)

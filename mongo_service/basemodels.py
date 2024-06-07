@@ -27,7 +27,7 @@ class YearlyData(PrimaryValidationFields):
 #Basemodels for All Corps endpoints
 
 class listOfCorporations(BaseModel):
-    corporations: list = ["0x0A3BF741342744B043FFAA6EE07AB7270000","0x258C279F9EC2D0BE42F7617B239E0C2A0000 "]
+    corporations: list = ["0x0A3BF741342744B043FFAA6EE07AB7270000","7212B912A3B481B54B3A6477D49256090000"]
     sheet: str = Field(...,example="adr")
         
 class AllCorpWeekData(listOfCorporations):
