@@ -340,7 +340,23 @@ def latest_upload_file(data_dict:latestUploadData):
             }
         return result
 
-    
+# End point for Daily by Month
+
+@app.post('/dailyByMonth',tags=["Daily by Month"])
+def daily_data_from_month_report(data:MonthData):
+    try:
+        data_dict = data.model_dump()
+        result = api.daily_data_from_monthreport(data_dict)
+        return result
+    except Exception as e:
+        result = {
+                "status_code":500,
+                "detail":"No detail found",
+                "error":str(e)
+            }
+        return result
+
+   
          
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8000)

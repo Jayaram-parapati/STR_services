@@ -599,13 +599,19 @@ class APIendpoints(connect_to_MongoDb):
                             "extraction_report_id":0
                         }},
                     ]
-            result = list(self.db["Monthly_uploads"].aggregate(pipeline))
-            if len(result) == 0:
+            res = list(self.db["Monthly_uploads"].aggregate(pipeline))
+            if len(res) == 0:
                 raise HTTPException(status_code=400,
                                     detail=f"No data found for {corporation_id} between {start_query_date} and {end_query_date}")
+            result={
+                    "data":res,
+                    "status_code":200,
+                    "detail":"Data retrieved successfully"
+                    }    
             return result
         except HTTPException as err:
             result = {
+                "data":[],
                 "status_code":400
             }
             res = self.db.Monthly_uploads.find_one({"corporation_id":corporation_id},{"_id":0,"extraction_report_id":0})
@@ -672,13 +678,20 @@ class APIendpoints(connect_to_MongoDb):
                             "extraction_report_id":0
                         }},
                     ]
-            result = list(self.db["Weekly_uploads"].aggregate(pipeline))
-            if len(result) == 0:
+            res = list(self.db["Weekly_uploads"].aggregate(pipeline))
+            if len(res) == 0:
                 raise HTTPException(status_code=400,
                                     detail=f"No data found for {corporation_id} between {start_query_date} and {end_query_date}")
+            
+            result={
+                    "data":res,
+                    "status_code":200,
+                    "detail":"Data retrieved successfully"
+                    }    
             return result
         except HTTPException as err:
             result = {
+                "data":[],
                 "status_code":400
             }
             res = self.db.Weekly_uploads.find_one({"corporation_id":corporation_id},{"_id":0,"extraction_report_id":0})
@@ -707,14 +720,34 @@ class APIendpoints(connect_to_MongoDb):
                 "enddate":data["enddate"],
                 "sheet":data["sheet"]
             }
+            
+            start_query_date = data["startdate"]
+            start_ts_obj = datetime.strptime(start_query_date,"%Y-%m-%d")
+            
+            end_query_date = data["enddate"]
+            end_ts_obj = datetime.strptime(end_query_date,"%Y-%m-%d")
+
+            # today = datetime.today()
+            # if start_ts_obj >= today or end_ts_obj >= today:
+            #     raise HTTPException(status_code=400,
+            #                         detail="searching dates are invalid")
+            
             corporations = data["corporations"]
             for corp in corporations:
                 try:
                     corp_data.update({"corporation_id":corp})
-                    corp_res = self.get_week_data(corp_data)
-                    data_list = corp_res.get("data",None)
-                    if data_list:
-                        all_corp_res.append(corp_res)
+                    multi_pc_data = list(self.db.Weekly_uploads.find({"corporation_id":corp,"delete_status":0,"date_range":{"$elemMatch": {"$gte": start_ts_obj,"$lte": end_ts_obj}}},
+                                                                     {"_id":0,"extraction_report_id":0}))
+                    
+                    if len(multi_pc_data) != 0:
+                        for upload in multi_pc_data:
+                            pc_id = upload.get("profit_center_id",None)
+                            corp_data.update({"profit_center_id":pc_id})
+
+                            corp_res = self.get_week_data(corp_data)
+                            data_list = corp_res.get("data",None)
+                            if data_list:
+                                all_corp_res.append(corp_res)
                 except Exception as err:
                     pass
                    
@@ -954,7 +987,7 @@ class APIendpoints(connect_to_MongoDb):
             else:
                 final_result.append({
                     'timestamp': date,
-                    'label': 'Your rank',
+                    'metadata':{'label': 'Your rank'},
                     'change': None
                 })    
         return final_result
@@ -1002,7 +1035,7 @@ class APIendpoints(connect_to_MongoDb):
             pipeline1 = [
                 {"$match":{"timestamp":{"$gte":start_ts_obj,"$lte":end_ts_obj},"metadata.str_id":{"$in":str_id_objIds},"metadata.label":"Your rank","tag_type":{"$exists":False}}},
                 {"$group":{"_id":{"timestamp":"$timestamp"},"label":{"$first":"$metadata.label"},"uniqueRank":{"$first":"$change"}}},
-                {"$project":{"_id":0,"timestamp": "$_id.timestamp","label":"$label","change": "$uniqueRank"}},
+                {"$project":{"_id":0,"timestamp": "$_id.timestamp","metadata.label":"$label","change": "$uniqueRank"}},
                 {"$sort":{"timestamp":1}}   
             ]
             
@@ -1064,6 +1097,10 @@ class APIendpoints(connect_to_MongoDb):
             if start_ts_obj >= today or end_ts_obj >= today:
                 raise HTTPException(status_code=400,detail="searching dates are invalid")
             
+            dates_difference = end_ts_obj - start_ts_obj
+            if dates_difference.days >= 31:
+                print(dates_difference.days)
+
             obj_id_query = {
                 "corporation_id":corp_id,
                 "date_range":{"$elemMatch": {"$gte": start_ts_obj,"$lte": end_ts_obj}},
@@ -1103,9 +1140,9 @@ class APIendpoints(connect_to_MongoDb):
                 for label in lables_list:
                     pipeline = [
                                     {"$match":{"timestamp":{"$gte":start_ts_obj,"$lte":end_ts_obj},
-                                            "metadata.str_id": ObjectId(str_id_objId),
-                                            "metadata.label":label,
-                                            "tag_type":{"$exists":False}}},
+                                               "metadata.str_id": ObjectId(str_id_objId),
+                                               "metadata.label":label,
+                                               "tag_type":{"$exists":False}}},
                                     {"$project":{"_id":0,"metadata.str_id":0,"change_rate":0}}
                                 ]
                     obj_key = f"{collection_name}_{label}"
