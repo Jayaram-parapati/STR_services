@@ -356,7 +356,21 @@ def daily_data_from_month_report(data:MonthData):
             }
         return result
 
-   
+#End point for STR KPI's
+    
+@app.post('/getKPI',tags=["KPI"])
+def str_kpi(data:WeekData):
+    try:
+        data_dict = data.model_dump()
+        result = api.get_str_kpi_data(data_dict)
+        return result
+    except Exception as e:
+        result = {
+                "status_code":500,
+                "detail":"No detail found",
+                "error":str(e)
+            }
+        return result    
          
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8000)

@@ -1081,6 +1081,32 @@ class APIendpoints(connect_to_MongoDb):
             }
             return result
         
+    def fillMissingKPIdata(self,result,start_date,end_date,label,tag):
+
+        all_dates = []
+        current_date = start_date
+        while current_date <= end_date:
+            all_dates.append(current_date)
+            if tag == "monthly":
+                max_days = calendar.monthrange(current_date.year,current_date.month)[1]
+                current_date += timedelta(days=max_days)
+                continue
+            current_date += timedelta(days=1)
+            
+        result_dict = {res['timestamp']: res for res in result}
+
+        final_result = []
+        for date in all_dates:
+            if date in result_dict.keys():
+                final_result.append(result_dict[date])
+            else:
+                final_result.append({
+                    'timestamp': date,
+                    'label': label,
+                    'change': None
+                })    
+        return final_result
+    
         
     def get_str_kpi_data(self,data):
         try:
@@ -1098,9 +1124,9 @@ class APIendpoints(connect_to_MongoDb):
                 raise HTTPException(status_code=400,detail="searching dates are invalid")
             
             dates_difference = end_ts_obj - start_ts_obj
-            if dates_difference.days >= 31:
-                print(dates_difference.days)
-
+            difference_days = dates_difference.days
+            max_days = calendar.monthrange(start_ts_obj.year,start_ts_obj.month)[1]
+            
             obj_id_query = {
                 "corporation_id":corp_id,
                 "date_range":{"$elemMatch": {"$gte": start_ts_obj,"$lte": end_ts_obj}},
@@ -1108,23 +1134,45 @@ class APIendpoints(connect_to_MongoDb):
             }
             if pc_id:
                 obj_id_query.update({"profit_center_id":pc_id})
-            obj = self.db.Weekly_uploads.find_one(obj_id_query)
-            if obj is None:
-                raise HTTPException(status_code=400,detail=f"No data found for {corp_id} between {start_query_date} and {end_query_date}")
             
-            str_id_objId = obj["extraction_report_id"]
-            
-            
-            
-            response_data = {"corporation_name":obj["corporation_name"],
-                            "corporation_id":obj["corporation_id"],
-                            "profitcenter_id":obj["profit_center_id"],
-                            "str_id":obj["str_id"],
-                            }
-            
+            response_data = {}
+                
+            if difference_days <= 7:    
+                obj = self.db.Weekly_uploads.find_one(obj_id_query)
+                str_id_objIds = [obj["extraction_report_id"]]
+                if obj is None:
+                    raise HTTPException(status_code=400,detail=f"No data found for {corp_id} between {start_query_date} and {end_query_date}")
+      
+                response_data.update({"corporation_name":obj["corporation_name"],
+                                "corporation_id":obj["corporation_id"],
+                                "profitcenter_id":obj["profit_center_id"],
+                                "str_id":obj["str_id"],
+                                })
+                
+            elif difference_days > 7 and difference_days <= max_days:    
+                documents = list(self.db.Weekly_uploads.find(obj_id_query))
+                if len(documents) == 0:
+                    raise HTTPException(status_code=400,
+                                    detail=f"No data found for {corp_id} between {start_query_date} and {end_query_date}")
+                str_id_objIds = [doc["extraction_report_id"] for doc in documents]
+                response_data.update({"corporation_name":documents[0]["corporation_name"],
+                            "corporation_id":documents[0]["corporation_id"],
+                            "profitcenter_id":documents[0]["profit_center_id"],
+                            "str_id":documents[0]["str_id"],
+                            })
+            else:   
+                documents = list(self.db.Monthly_uploads.find(obj_id_query))
+                if len(documents) == 0:
+                    raise HTTPException(status_code=400,
+                                    detail=f"No data found for {corp_id} between {start_query_date} and {end_query_date}")
+                str_id_objIds = [doc["extraction_report_id"] for doc in documents]
+                response_data.update({"corporation_name":documents[0]["corporation_name"],
+                            "corporation_id":documents[0]["corporation_id"],
+                            "profitcenter_id":documents[0]["profit_center_id"],
+                            "str_id":documents[0]["str_id"],
+                            })
+                
             result ={}
-            response_data.update({"status_code":200,"detail":"Data retrieved successfully"})
-            result.update(response_data)
             
             index_dict = {
                 "adr":"Index (ARI)",
@@ -1135,18 +1183,33 @@ class APIendpoints(connect_to_MongoDb):
             coll_names = ["adr","occupancy","revpar"]
             data = {}
             for collection_name in coll_names:
-                lables_list = ["Comp Set"]
+                lables_list = ["Competitive Set"]
+                if difference_days <= max_days:
+                    lables_list = ["Comp Set"]
+                    
                 lables_list.append(index_dict[collection_name])
                 for label in lables_list:
                     pipeline = [
                                     {"$match":{"timestamp":{"$gte":start_ts_obj,"$lte":end_ts_obj},
-                                               "metadata.str_id": ObjectId(str_id_objId),
+                                               "metadata.str_id": {"$in": str_id_objIds},
                                                "metadata.label":label,
                                                "tag_type":{"$exists":False}}},
-                                    {"$project":{"_id":0,"metadata.str_id":0,"change_rate":0}}
+                                    {"$group":{"_id":{"timestamp":"$timestamp","label":"$metadata.label"},"unique_change":{"$first":"$change"}}},
+                                    {"$project": {"_id": 0,"timestamp": "$_id.timestamp","label":"$_id.label","change": "$unique_change"}},
+                                    {"$sort":{"timestamp":1}}
                                 ]
                     obj_key = f"{collection_name}_{label}"
-                    data.update({obj_key:list(self.db[collection_name].aggregate(pipeline))})
+                    if difference_days <= max_days:
+                        kpi_data = list(self.db[collection_name].aggregate(pipeline))
+                        kpi_data_filledwithnulls = self.fillMissingKPIdata(kpi_data,start_ts_obj,end_ts_obj,label,"weekly")
+                        data.update({obj_key:kpi_data_filledwithnulls})
+                    else:
+                        month_collection = collection_name+"_monthlyAvgs"
+                        kpi_data = list(self.db[month_collection].aggregate(pipeline))
+                        kpi_data_filledwithnulls = self.fillMissingKPIdata(kpi_data,start_ts_obj,end_ts_obj,label,"monthly")
+                        data.update({obj_key:kpi_data_filledwithnulls}) 
+            result.update(response_data)
+            result.update({"status_code":200,"detail":"Data retrieved successfully"})               
             result.update({"data":data})        
             return result 
             
