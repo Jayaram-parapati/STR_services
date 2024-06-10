@@ -542,15 +542,17 @@ class APIendpoints(connect_to_MongoDb):
             }
             return result 
         
-    def check_upload_file(self,fname,str_id,date,reportType):
+    def check_upload_file(self,corp_id,pc_id,str_id,date,reportType):
         query = {
-            "file_name": fname,
+            "corporation_id":corp_id,
             "str_id": str_id,
             "date_range": {
                 "$gte": date[0],
                 "$lte": date[1]
             }
         }
+        if pc_id:
+            query.update({"profit_center_id":pc_id})
         
         matchObj = self.db[f'{reportType}_uploads'].find_one(query)
         return matchObj

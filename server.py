@@ -94,9 +94,9 @@ def upload_file(
                         reportType = report["response"]["str_type"].split(" ")[0]
                         reportDate = report["response"]['date']
 
-                        check_uploadFile = api.check_upload_file(fname,str_id,reportDate,reportType)
+                        check_uploadFile = api.check_upload_file(corporation_id,profit_center_id,str_id,reportDate,reportType)
                         if not check_uploadFile:
-                            if report['response']['str_id'] == str_id:
+                            if report['response']['str_id'] == str_id or report['response']['corporation'].lower().strip() == corporation_name.lower().strip():
 
                                 if reportType == "Weekly":
                                     extraction = weekly_extraction.prepare_all_dfs(sheets,xl)
@@ -121,7 +121,7 @@ def upload_file(
                                     }
                                     )    
                             else:
-                                file_status.append({'file_name':fname,"message":"str ID was missmatched please check","status":400})       
+                                file_status.append({'file_name':fname,"message":"str_id or corporation name mismatch, please check ","status":400})       
 
                         else:
                             file_status.append({'file_name':fname,'message':'file already exist please check', 'status':500})
