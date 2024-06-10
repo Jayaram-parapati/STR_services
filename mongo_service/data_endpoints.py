@@ -360,7 +360,6 @@ class APIendpoints(connect_to_MongoDb):
             
             num = int(data["years_selected"])
             current_year = datetime.now().year
-            current_month = datetime.now().month
             start_year = current_year - num
             
             
@@ -780,14 +779,31 @@ class APIendpoints(connect_to_MongoDb):
                 "week_end_date":data["week_end_date"],
                 "sheet":data["sheet"]
             }
+            
+            start_query_date = data["week_start_date"]
+            start_ts_obj = datetime.strptime(start_query_date,"%Y-%m-%d")
+            
+            end_query_date = data["week_end_date"]
+            end_ts_obj = datetime.strptime(end_query_date,"%Y-%m-%d")
+            
             corporations = data["corporations"]
             for corp in corporations:
                 try:
                     corp_data.update({"corporation_id":corp})
-                    corp_res = self.get_weekly_data(corp_data)
-                    data_list = corp_res.get("data",None)
-                    if data_list:
-                        all_corp_res.append(corp_res)
+                    multi_pc_data = list(self.db.Weekly_uploads.find({"corporation_id":corp,"delete_status":0,"date_range":{"$elemMatch": {"$gte": start_ts_obj,"$lte": end_ts_obj}}},
+                                                                     {"_id":0,"extraction_report_id":0}))
+                    
+                    if len(multi_pc_data) != 0:
+                        pc_set = set()
+                        for obj in multi_pc_data:
+                            pc_id = obj.get("profit_center_id",None)
+                            pc_set.add(pc_id)
+                        for pc_id in pc_set:
+                            corp_data.update({"profit_center_id":pc_id})
+                            corp_res = self.get_weekly_data(corp_data)
+                            data_list = corp_res.get("data",None)
+                            if data_list:
+                                all_corp_res.append(corp_res)
                 
                 except Exception as err:
                     pass
@@ -820,17 +836,39 @@ class APIendpoints(connect_to_MongoDb):
                 "month":data["month"],
                 "sheet":data["sheet"]
             }
+            
+            year = int(data["year"])
+            month = int(data["month"])
+            
+            date = calendar.monthrange(year,month)[1]
+            
+            start_query_date = f"{year} {month} 01"
+            start_ts_obj = datetime.strptime(start_query_date,"%Y %m %d")
+            
+            end_query_date = f"{year} {month} {date}"
+            end_ts_obj = datetime.strptime(end_query_date,"%Y %m %d")
+            
             corporations = data["corporations"]
             for corp in corporations:
                 try:
                     corp_data.update({"corporation_id":corp})
-                    corp_res = self.get_month_data(corp_data)
-                    obj = data["sheet"]+"_monthlyAvgs"
-                    data_obj = corp_res.get(obj,None)
-                    if data_obj:
-                        data_list = data_obj.get("data",None)
-                        if data_list:
-                            all_corp_res.append(corp_res)
+                    multi_pc_data = list(self.db.Monthly_uploads.find({"corporation_id":corp,"delete_status":0,"date_range":{"$elemMatch": {"$gte": start_ts_obj,"$lte": end_ts_obj}}},
+                                                                     {"_id":0,"extraction_report_id":0}))
+                    
+                    if len(multi_pc_data) != 0:
+                        pc_set = set()
+                        for obj in multi_pc_data:
+                            pc_id = obj.get("profit_center_id",None)
+                            pc_set.add(pc_id)
+                        for pc_id in pc_set:
+                            corp_data.update({"profit_center_id":pc_id})
+                            corp_res = self.get_month_data(corp_data)
+                            obj = data["sheet"]+"_monthlyAvgs"
+                            data_obj = corp_res.get(obj,None)
+                            if data_obj:
+                                data_list = data_obj.get("data",None)
+                                if data_list:
+                                    all_corp_res.append(corp_res)
                 except Exception as err:
                     pass
             if len(all_corp_res) == 0:
@@ -861,14 +899,33 @@ class APIendpoints(connect_to_MongoDb):
                 "year":data["year"],
                 "sheet":data["sheet"]
             }
+            
+            year = int(data["year"])
+           
+            start_query_date = f"{year} 01"
+            start_ts_obj = datetime.strptime(start_query_date,"%Y %m")
+            
+            end_query_date = f"{year} 12 31"
+            end_ts_obj = datetime.strptime(end_query_date,"%Y %m %d")
+            
             corporations = data["corporations"]
             for corp in corporations:
                 try:
                     corp_data.update({"corporation_id":corp})
-                    corp_res = self.get_monthly_data(corp_data)
-                    data_list = corp_res.get("data",None)
-                    if data_list:
-                        all_corp_res.append(corp_res)
+                    
+                    multi_pc_data = list(self.db.Monthly_uploads.find({"corporation_id":corp,"delete_status":0,"date_range":{"$elemMatch": {"$gte": start_ts_obj,"$lte": end_ts_obj}}},
+                                                                     {"_id":0,"extraction_report_id":0}))
+                    if len(multi_pc_data) != 0:
+                        pc_set = set()
+                        for obj in multi_pc_data:
+                            pc_id = obj.get("profit_center_id",None)
+                            pc_set.add(pc_id)
+                        for pc_id in pc_set:
+                            corp_data.update({"profit_center_id":pc_id})
+                            corp_res = self.get_monthly_data(corp_data)
+                            data_list = corp_res.get("data",None)
+                            if data_list:
+                                all_corp_res.append(corp_res)
                 except Exception as err:
                     pass
             if len(all_corp_res) == 0:
@@ -899,14 +956,36 @@ class APIendpoints(connect_to_MongoDb):
                 "years_selected":data["years_selected"],
                 "sheet":data["sheet"]
             }
+            
+            num = int(data["years_selected"])
+            current_year = datetime.now().year
+            start_year = current_year - num
+            
+            
+            start_query_date = f"{start_year} 01 01"
+            start_ts_obj = datetime.strptime(start_query_date,"%Y %m %d")
+            
+            end_query_date = f"{current_year} 12 31"
+            end_ts_obj = datetime.strptime(end_query_date,"%Y %m %d")
+            
             corporations = data["corporations"]
             for corp in corporations:
                 try:
                     corp_data.update({"corporation_id":corp})
-                    corp_res = self.get_yearly_data(corp_data)
-                    data_list = corp_res.get("data",None)
-                    if data_list:
-                        all_corp_res.append(corp_res)
+                    
+                    multi_pc_data = list(self.db.Monthly_uploads.find({"corporation_id":corp,"delete_status":0,"date_range":{"$elemMatch": {"$gte": start_ts_obj,"$lte": end_ts_obj}}},
+                                                                     {"_id":0,"extraction_report_id":0}))
+                    if len(multi_pc_data) != 0:
+                        pc_set = set()
+                        for obj in multi_pc_data:
+                            pc_id = obj.get("profit_center_id",None)
+                            pc_set.add(pc_id)
+                        for pc_id in pc_set:
+                            corp_data.update({"profit_center_id":pc_id})
+                            corp_res = self.get_yearly_data(corp_data)
+                            data_list = corp_res.get("data",None)
+                            if data_list:
+                                all_corp_res.append(corp_res)
                 except Exception as err:
                     pass   
             if len(all_corp_res) == 0:
@@ -938,14 +1017,30 @@ class APIendpoints(connect_to_MongoDb):
                 "enddate":data["enddate"],
                 "sheet":data["sheet"]
             }
+            
+            start_query_date = data["startdate"]
+            start_ts_obj = datetime.strptime(start_query_date,"%Y-%m-%d")
+            
+            end_query_date = data["enddate"]
+            end_ts_obj = datetime.strptime(end_query_date,"%Y-%m-%d")
+            
             corporations = data["corporations"]
             for corp in corporations:
                 try:
                     corp_data.update({"corporation_id":corp})
-                    corp_res = self.get_range_data(corp_data)
-                    data_list = corp_res.get("data",None)
-                    if data_list:
-                        all_corp_res.append(corp_res)
+                    multi_pc_data = list(self.db.Weekly_uploads.find({"corporation_id":corp,"delete_status":0,"date_range":{"$elemMatch": {"$gte": start_ts_obj,"$lte": end_ts_obj}}},
+                                                                     {"_id":0,"extraction_report_id":0}))
+                    if len(multi_pc_data) != 0:
+                        pc_set = set()
+                        for obj in multi_pc_data:
+                            pc_id = obj.get("profit_center_id",None)
+                            pc_set.add(pc_id)
+                        for pc_id in pc_set:
+                            corp_data.update({"profit_center_id":pc_id})
+                            corp_res = self.get_range_data(corp_data)
+                            data_list = corp_res.get("data",None)
+                            if data_list:
+                                all_corp_res.append(corp_res)
                 except Exception as err:
                     pass   
             if len(all_corp_res) == 0:
