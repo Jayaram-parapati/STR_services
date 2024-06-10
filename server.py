@@ -8,7 +8,7 @@ import uuid
 import sys,json,os
 import pandas as pd
 from io import BytesIO
-from typing import Dict,Optional,Union
+from typing import Dict,Optional,Union,Any
 from bson import ObjectId
 
 from mongo_service import connect_to_MongoDb
@@ -318,7 +318,11 @@ def latest_upload_file(data_dict:latestUploadData):
         corp_id = data["corporation_id"]
         coll = data["type"]
         collection = coll+"_uploads"
-        res = list(db[collection].find({"corporation_id":corp_id},{"_id": 0, "extraction_report_id": 0}).sort("date_range", -1).limit(1))
+        pc_id = data.get("profit_center_id",None)
+        match_query = {"corporation_id":corp_id}
+        if pc_id:
+            match_query.update({"profit_center_id":pc_id})
+        res = list(db[collection].find(match_query,{"_id": 0, "extraction_report_id": 0}).sort("date_range", -1).limit(1))
         if len(res) == 0:
             result={
                 "data":[],
