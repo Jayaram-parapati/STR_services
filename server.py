@@ -51,6 +51,7 @@ def upload_file(
                 str_id: str = Form(...),
                 corporation_id: str  = Form(...),
                 profit_center_id: Optional[str] = Form(None),
+                profit_center_name: Optional[str] = Form(None),
                 user_id:str = Form(...),
                 client_id: Optional[str] = Form(None),
                 url:str = Form(...),
@@ -75,6 +76,7 @@ def upload_file(
                     "str_id":str_id,
                     "corporation_id":corporation_id,
                     "profit_center_id":profit_center_id,
+                    "profit_center_name":profit_center_name,
                     "user_id":user_id,
                     "client_id":client_id,
                     "url":url

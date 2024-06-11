@@ -51,6 +51,8 @@ class APIendpoints(connect_to_MongoDb):
             collection = data.get("sheet",None)
             if collection:
                 res = {}
+                pc_name = obj.get("profit_center_name",None)
+                response_data.update({"profitcenter_name":pc_name})
                 res.update(response_data)
                 res.update({
                             "sheet":collection,
@@ -130,6 +132,8 @@ class APIendpoints(connect_to_MongoDb):
             collection = data.get("sheet",None)
             if collection:
                 res = {}
+                pc_name = documents[0].get("profit_center_name",None)
+                response_data.update({"profitcenter_name":pc_name})
                 res.update(response_data)
                 res.update({
                             "sheet":collection,
@@ -228,6 +232,8 @@ class APIendpoints(connect_to_MongoDb):
             collection = data.get("sheet",None)
             if collection:
                 res = {}
+                pc_name = obj.get("profit_center_name",None)
+                response_data.update({"profitcenter_name":pc_name})
                 coll_name = collection+"_monthlyAvgs"
                 res.update(response_data)
                 res.update({coll_name:{
@@ -315,6 +321,8 @@ class APIendpoints(connect_to_MongoDb):
             collection = data.get("sheet",None)
             if collection:
                 res = {}
+                pc_name = documents[0].get("profit_center_name",None)
+                response_data.update({"profitcenter_name":pc_name})
                 res.update(response_data)
                 coll_name = collection+"_monthlyAvgs"
                 res.update({
@@ -423,6 +431,8 @@ class APIendpoints(connect_to_MongoDb):
             collection = data.get("sheet",None)
             if collection:
                 res = {}
+                pc_name = documents[0].get("profit_center_name",None)
+                response_data.update({"profitcenter_name":pc_name})
                 res.update(response_data)
                 coll_name = collection+"_monthlyAvgs"
                 res.update({
@@ -504,6 +514,8 @@ class APIendpoints(connect_to_MongoDb):
             collection = data.get("sheet",None)
             if collection:
                 res = {}
+                pc_name = documents[0].get("profit_center_name",None)
+                response_data.update({"profitcenter_name":pc_name})
                 res.update(response_data)
                 res.update({
                             "sheet":collection,
