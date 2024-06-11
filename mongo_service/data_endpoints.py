@@ -358,9 +358,9 @@ class APIendpoints(connect_to_MongoDb):
             corp_id = data["corporation_id"]
             pc_id = data.get("profit_center_id",None)
             
-            num = int(data["years_selected"])
+            num = int(data["years_selected"])-1
             current_year = datetime.now().year
-            start_year = current_year - num
+            start_year = current_year - num 
             
             
             start_query_date = f"{start_year} 01 01"
