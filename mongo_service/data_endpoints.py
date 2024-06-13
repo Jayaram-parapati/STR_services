@@ -115,29 +115,110 @@ class APIendpoints(connect_to_MongoDb):
             if pc_id:
                 obj_id_query.update({"profit_center_id":pc_id})
             documents = list(self.db.Weekly_uploads.find(obj_id_query))
+            monthly_docs = []
             if len(documents) == 0:
-                raise HTTPException(status_code=400,
+                
+                max_days = calendar.monthrange(start_ts_obj.year,start_ts_obj.month)[1]
+                temp_start_query_date = f"{start_ts_obj.year} {start_ts_obj.month} 01"
+                temp_start_ts_obj = datetime.strptime(temp_start_query_date,"%Y %m %d")
+                temp_end_query_date = f"{start_ts_obj.year} {start_ts_obj.month} {max_days}"
+                temp_end_ts_obj = datetime.strptime(temp_end_query_date,"%Y %m %d")
+                
+                obj_id_query["date_range"]["$elemMatch"]["$gte"]=temp_start_ts_obj
+                obj_id_query["date_range"]["$elemMatch"]["$lte"]=temp_end_ts_obj
+
+                monthly_docs = list(self.db.Monthly_uploads.find(obj_id_query))
+                if len(monthly_docs) == 0:
+                    raise HTTPException(status_code=400,
                                     detail=f"No data found for {corp_id} between {start_query_date} and {end_query_date}")
+                monthly_str_id_objIds = [doc["extraction_report_id"] for doc in monthly_docs]
+                monthly_pipeline = [
+                    {"$match":{"metadata.str_id":{"$in":monthly_str_id_objIds},"timestamp":{"$gte":start_ts_obj,"$lte":end_ts_obj}}},
+                    {
+                        "$group": {
+                            "_id": {
+                                "year": {"$year": "$timestamp"},
+                                "week": {"$week": "$timestamp"},
+                                "label": "$metadata.label",
+                            },
+                            "avg_change": {"$avg": "$change"},
+                        }
+                    },
+                    {
+                        "$project": {
+                            "_id": 0,
+                            "timestamp": {
+                                "$dateFromParts": {
+                                    "isoWeekYear": "$_id.year",
+                                    "isoWeek": "$_id.week",
+                                    "isoDayOfWeek": 0
+                                }
+                            },
+                            "metadata.label": "$_id.label",
+                            "change": "$avg_change",
+                            "week_range": [
+                                            {
+                                                "$dateToString": {
+                                                    "date": {
+                                                        "$dateFromParts": {
+                                                            "isoWeekYear": "$_id.year",
+                                                            "isoWeek": "$_id.week",
+                                                            "isoDayOfWeek": 0  
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                            {
+                                                "$dateToString": {
+                                                    "date": {
+                                                        "$dateFromParts": {
+                                                            "isoWeekYear": "$_id.year",
+                                                            "isoWeek": "$_id.week",
+                                                            "isoDayOfWeek": 6  
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        ]
+                            
+                            
+                        }
+                    },
+                    {"$sort": {"timestamp": 1}},
+                ]
+                response_data = {"corporation_name":monthly_docs[0]["corporation_name"],
+                                "corporation_id":monthly_docs[0]["corporation_id"],
+                                "profitcenter_id":monthly_docs[0].get("profit_center_id",None),
+                                "profitcenter_name":monthly_docs[0].get("profit_center_name",None),
+                                "str_id":monthly_docs[0]["str_id"],
+                                }
+    
             str_id_objIds = [doc["extraction_report_id"] for doc in documents]
             
             pipeline=[
                 {"$match":{"timestamp":{"$gte":start_ts_obj,"$lte":end_ts_obj},"metadata.str_id": {"$in": str_id_objIds},"tag_type":{"$eq":"Current Week"}}},
                 {"$project":{"_id":0,"metadata.str_id":0,"change_rate":0}}
             ]
-            response_data = {"corporation_name":documents[0]["corporation_name"],
-                            "corporation_id":documents[0]["corporation_id"],
-                            "profitcenter_id":documents[0]["profit_center_id"],
-                            "str_id":documents[0]["str_id"],
-                            }
+            if documents:
+                response_data = {"corporation_name":documents[0]["corporation_name"],
+                                "corporation_id":documents[0]["corporation_id"],
+                                "profitcenter_id":documents[0].get("profit_center_id",None),
+                                "profitcenter_name":documents[0].get("profit_center_name",None),
+                                "str_id":documents[0]["str_id"],
+                                }
+            
             collection = data.get("sheet",None)
             if collection:
                 res = {}
-                pc_name = documents[0].get("profit_center_name",None)
-                response_data.update({"profitcenter_name":pc_name})
                 res.update(response_data)
+                collectionName_allCorp = collection
+                pipeline_to_aggregate_allCorp = pipeline
+                if monthly_docs:
+                    collectionName_allCorp = collection+"_DailyByMonth"
+                    pipeline_to_aggregate_allCorp = monthly_pipeline
                 res.update({
                             "sheet":collection,
-                            "data":list(self.db[collection].aggregate(pipeline))
+                            "data":list(self.db[collectionName_allCorp].aggregate(pipeline_to_aggregate_allCorp))
                             })
                 return res
             
@@ -146,7 +227,12 @@ class APIendpoints(connect_to_MongoDb):
             result.update(response_data)
             coll_names = ["adr","occupancy","revpar"]
             for collection_name in coll_names:
-                result.update({collection_name:list(self.db[collection_name].aggregate(pipeline))})
+                collectionName = collection_name
+                pipeline_to_aggregate = pipeline
+                if monthly_docs:
+                    collectionName = collection_name+"_DailyByMonth"
+                    pipeline_to_aggregate = monthly_pipeline
+                result.update({collection_name:list(self.db[collectionName].aggregate(pipeline_to_aggregate))})
             # print(result)
             return result
          
@@ -501,8 +587,6 @@ class APIendpoints(connect_to_MongoDb):
             
             pipeline=[
                 {"$match":{"timestamp":{"$gte":start_ts_obj,"$lte":end_ts_obj},"metadata.str_id": {"$in": str_id_objIds},"tag_type":{"$exists":False},"metadata.label":{"$ne":"Your rank"}}},
-                # {"$group":{"_id":{"label":"$metadata.label"},"avg_change":{"$avg":"$change"}}},
-                # {"$project":{"_id":0,"label":"$_id.label","change":"$avg_change"}}
                 {"$group": {"_id": "$metadata.label","unique_changes": {"$addToSet": {"timestamp": "$timestamp","change": "$change"}}}},
                 {"$project": {"_id": 0,"label": "$_id","change": {"$avg": "$unique_changes.change"}}}
             ]
@@ -588,7 +672,7 @@ class APIendpoints(connect_to_MongoDb):
             end_ts_obj = datetime.strptime(end_query_date,"%Y %m %d")
 
             today = datetime.today()
-            if start_ts_obj >= today or end_ts_obj >= today:
+            if start_ts_obj >= today:
                 raise HTTPException(status_code=400,
                                     detail="searching dates are invalid")
             
@@ -667,7 +751,7 @@ class APIendpoints(connect_to_MongoDb):
             end_ts_obj = datetime.strptime(end_query_date,"%Y %m %d")
             
             today = datetime.today()
-            if start_ts_obj >= today or end_ts_obj >= today:
+            if start_ts_obj >= today:
                 raise HTTPException(status_code=400,
                                     detail="searching dates are invalid")
             
@@ -804,8 +888,19 @@ class APIendpoints(connect_to_MongoDb):
             for corp in corporations:
                 try:
                     corp_data.update({"corporation_id":corp})
-                    multi_pc_data = list(self.db.Weekly_uploads.find({"corporation_id":corp,"delete_status":0,"date_range":{"$elemMatch": {"$gte": start_ts_obj,"$lte": end_ts_obj}}},
-                                                                     {"_id":0,"extraction_report_id":0}))
+                    multipc_match_query = {"corporation_id":corp,"delete_status":0,"date_range":{"$elemMatch": {"$gte": start_ts_obj,"$lte": end_ts_obj}}}
+                    multi_pc_data = list(self.db.Weekly_uploads.find(multipc_match_query,{"_id":0,"extraction_report_id":0}))
+                    if len(multi_pc_data) == 0:
+                        max_days = calendar.monthrange(start_ts_obj.year,start_ts_obj.month)[1]
+                        temp_start_query_date = f"{start_ts_obj.year} {start_ts_obj.month} 01"
+                        temp_start_ts_obj = datetime.strptime(temp_start_query_date,"%Y %m %d")
+                        temp_end_query_date = f"{start_ts_obj.year} {start_ts_obj.month} {max_days}"
+                        temp_end_ts_obj = datetime.strptime(temp_end_query_date,"%Y %m %d")
+                        
+                        multipc_match_query["date_range"]["$elemMatch"]["$gte"]=temp_start_ts_obj
+                        multipc_match_query["date_range"]["$elemMatch"]["$lte"]=temp_end_ts_obj
+                        multi_pc_data = list(self.db.Monthly_uploads.find(multipc_match_query,{"_id":0,"extraction_report_id":0}))
+                        
                     
                     if len(multi_pc_data) != 0:
                         pc_set = set()

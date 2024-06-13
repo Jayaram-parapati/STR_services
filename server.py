@@ -220,8 +220,19 @@ def import_files(data:Dict[str,str]=Body(...)):
         query_params = {"corporation_id":corporation_id,
                         "report_type":filetype,
                         "year":year}
+        str_match_query = {"corporation_id": corporation_id}
         if profit_center:
             query_params.update({"profit_center":profit_center})
+            str_match_query.update({"profit_center_id":profit_center})
+      
+        obj = db["Weekly_uploads"].find_one(str_match_query,{"_id":0,"str_id":1})
+        str_id = (obj or {}).get('str_id',None)
+        if obj is None:
+            obj_m = db["Monthly_uploads"].find_one(str_match_query,{"_id":0,"str_id":1})
+            str_id = (obj_m or {}).get('str_id',None)
+        
+        
+        result.update({"str_id":str_id})         
         if filetype == "Monthly":
             result.update({filetype:api.get_import_files_monthly(query_params)})
         elif filetype == "Weekly":
@@ -377,6 +388,6 @@ def str_kpi(data:WeekData):
                 "error":str(e)
             }
         return result    
-         
+       
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8000)
