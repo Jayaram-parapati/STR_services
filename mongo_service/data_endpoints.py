@@ -147,37 +147,13 @@ class APIendpoints(connect_to_MongoDb):
                         "$project": {
                             "_id": 0,
                             "timestamp": {
-                                "$dateFromParts": {
-                                    "isoWeekYear": "$_id.year",
-                                    "isoWeek": "$_id.week",
-                                    "isoDayOfWeek": 0
-                                }
+                                "$dateFromParts": {"isoWeekYear": "$_id.year","isoWeek": "$_id.week","isoDayOfWeek": 0}
                             },
                             "metadata.label": "$_id.label",
                             "change": "$avg_change",
                             "week_range": [
-                                            {
-                                                "$dateToString": {
-                                                    "date": {
-                                                        "$dateFromParts": {
-                                                            "isoWeekYear": "$_id.year",
-                                                            "isoWeek": "$_id.week",
-                                                            "isoDayOfWeek": 0  
-                                                        }
-                                                    }
-                                                }
-                                            },
-                                            {
-                                                "$dateToString": {
-                                                    "date": {
-                                                        "$dateFromParts": {
-                                                            "isoWeekYear": "$_id.year",
-                                                            "isoWeek": "$_id.week",
-                                                            "isoDayOfWeek": 6  
-                                                        }
-                                                    }
-                                                }
-                                            }
+                                            {"$dateToString": {"date": {"$dateFromParts": {"isoWeekYear": "$_id.year","isoWeek": "$_id.week","isoDayOfWeek": 0}}}},
+                                            {"$dateToString": {"date": {"$dateFromParts": {"isoWeekYear": "$_id.year","isoWeek": "$_id.week","isoDayOfWeek": 6}}}},  
                                         ]
                             
                             
@@ -386,23 +362,83 @@ class APIendpoints(connect_to_MongoDb):
             if pc_id:
                 obj_id_query.update({"profit_center_id":pc_id})
             documents = list(self.db.Monthly_uploads.find(obj_id_query))
+            weekly_docs=[]
             if len(documents) == 0:
-                raise HTTPException(status_code=400,
+                
+                weekly_docs = list(self.db.Weekly_uploads.find(obj_id_query))
+                if len(weekly_docs) == 0:
+                    raise HTTPException(status_code=400,
                                     detail=f"No data found for {corp_id} between {start_query_date} and {end_query_date}")
+                weekly_str_id_objIds = [doc["extraction_report_id"] for doc in weekly_docs]
+                weekly_pipeline = [
+                    {"$match":{"timestamp":{"$gte":start_ts_obj,"$lte":end_ts_obj},"metadata.str_id": {"$in": weekly_str_id_objIds},"tag_type":{"$eq":"Current Week"}}},
+                    {
+                        "$group": {
+                            "_id": {
+                                "year": {"$year": "$timestamp"},
+                                "month": {"$month": "$timestamp"},
+                                "label": "$metadata.label",
+                            },
+                            "avg_change":{
+                                "$avg":{
+                                    "$cond": {
+                                        "if": { "$ne": ["$metadata.label", "Your rank"] },
+                                        "then":{
+                                            "$cond":{
+                                                "if": { "$eq": ["$change", "null"] },
+                                                "then": 0,
+                                                "else": { "$toDouble": "$change" }
+                                                }},
+                                        "else": {
+                                            "$cond": {
+                                                "if": { "$eq": [{ "$arrayElemAt": [{ "$split": ["$change", " of "] }, 0] }, "null"] },
+                                                "then": 0,
+                                                "else": { "$toInt": { "$arrayElemAt": [{ "$split": ["$change", " of "] }, 0] } }
+                                            }
+                                        }
+                                    }}}
+                        }
+                    },
+                    {
+                     "$project":{
+                         "_id": 0,
+                        "timestamp": {
+                            "$dateFromParts": {"year": "$_id.year","month": "$_id.month"}
+                        },
+                        "label": "$_id.label",
+                        "change":{
+                            "$cond":{
+                                "if":{"$ne":["$_id.label","Your rank"]},
+                                "then":"$avg_change",
+                                "else":{"$concat":[{"$toString":{"$round":"$avg_change"}}," of 5"]}}}
+                     }   
+                    },
+                    {"$sort":{"timestamp":1}}
+                ]
+                response_data = {"corporation_name":weekly_docs[0]["corporation_name"],
+                                "corporation_id":weekly_docs[0]["corporation_id"],
+                                "profitcenter_id":weekly_docs[0].get("profit_center_id",None),
+                                "profitcenter_name":weekly_docs[0].get("profit_center_name",None),
+                                "str_id":weekly_docs[0]["str_id"],
+                                }
+                    
+          
             str_id_objIds = [doc["extraction_report_id"] for doc in documents]
+            uploaded_timestamps = [doc["date_range"][0] for doc in documents]
             
             pipeline=[
-                {"$match":{"timestamp":{"$gte":start_ts_obj,"$lte":end_ts_obj},"metadata.str_id": {"$in": str_id_objIds},"tag_type":{"$exists":False}}},
+                {"$match":{"timestamp":{"$in":uploaded_timestamps},"metadata.str_id": {"$in": str_id_objIds},"tag_type":{"$exists":False}}},
                 {"$group":{"_id":{"timestamp":"$timestamp","label":"$metadata.label"},"unique_change":{"$first":"$change"}}},
                 {"$project": {"_id": 0,"timestamp": "$_id.timestamp","label":"$_id.label","change": "$unique_change"}},
                 {"$sort":{"timestamp":1}}
             ]
-            response_data = {"corporation_name":documents[0]["corporation_name"],
-                            "corporation_id":documents[0]["corporation_id"],
-                            "profitcenter_id":documents[0].get("profit_center_id",None),
-                            "profitcenter_name":documents[0].get("profit_center_name",None),
-                            "str_id":documents[0]["str_id"],
-                            }
+            if documents:
+                response_data = {"corporation_name":documents[0]["corporation_name"],
+                                "corporation_id":documents[0]["corporation_id"],
+                                "profitcenter_id":documents[0].get("profit_center_id",None),
+                                "profitcenter_name":documents[0].get("profit_center_name",None),
+                                "str_id":documents[0]["str_id"],
+                                }
             collection = data.get("sheet",None)
             if collection:
                 res = {}
@@ -419,7 +455,12 @@ class APIendpoints(connect_to_MongoDb):
             result.update(response_data)
             coll_names = ["adr_monthlyAvgs","occupancy_monthlyAvgs","revpar_monthlyAvgs"]
             for collection_name in coll_names:
-                result.update({collection_name.split('_')[0]:list(self.db[collection_name].aggregate(pipeline))})
+                collectionName = collection_name
+                pipeline_to_aggregate = pipeline
+                if weekly_docs:
+                    collectionName = collection_name.split('_')[0]
+                    pipeline_to_aggregate = weekly_pipeline
+                result.update({collection_name.split('_')[0]:list(self.db[collectionName].aggregate(pipeline_to_aggregate))})
             # print(result)
             return result
         except HTTPException as err:
@@ -1016,9 +1057,11 @@ class APIendpoints(connect_to_MongoDb):
             for corp in corporations:
                 try:
                     corp_data.update({"corporation_id":corp})
-                    
-                    multi_pc_data = list(self.db.Monthly_uploads.find({"corporation_id":corp,"delete_status":0,"date_range":{"$elemMatch": {"$gte": start_ts_obj,"$lte": end_ts_obj}}},
-                                                                     {"_id":0,"extraction_report_id":0}))
+                    multipc_match_query = {"corporation_id":corp,"delete_status":0,"date_range":{"$elemMatch": {"$gte": start_ts_obj,"$lte": end_ts_obj}}}
+                    multi_pc_data = list(self.db.Monthly_uploads.find(multipc_match_query,{"_id":0,"extraction_report_id":0}))
+                    if len(multi_pc_data)==0:
+                        multi_pc_data = list(self.db.Weekly_uploads.find(multipc_match_query,{"_id":0,"extraction_report_id":0}))
+                   
                     if len(multi_pc_data) != 0:
                         pc_set = set()
                         for obj in multi_pc_data:
