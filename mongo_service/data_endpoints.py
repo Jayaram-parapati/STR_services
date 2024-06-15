@@ -350,7 +350,7 @@ class APIendpoints(connect_to_MongoDb):
             end_ts_obj = datetime.strptime(end_query_date,"%Y %m %d")
             
             today = datetime.today()
-            if start_ts_obj >= today or end_ts_obj >= today:
+            if start_ts_obj >= today:
                 raise HTTPException(status_code=400,
                                     detail="searching dates are invalid")
                 
