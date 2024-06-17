@@ -98,7 +98,15 @@ def upload_file(
 
                         check_uploadFile = api.check_upload_file(corporation_id,profit_center_id,str_id,reportDate,reportType)
                         if not check_uploadFile:
-                            if report['response']['str_id'] == str_id or report['response']['corporation'].lower().strip() == corporation_name.lower().strip():
+                            
+                            query = {"corporation_id":corporation_id}
+                            
+                            if profit_center_id:
+                                query.update({"profit_center_id":profit_center_id})
+                            
+                            matchObj = db[f'{reportType}_uploads'].find_one(query)
+                            
+                            if report['response']['str_id'] == str_id or matchObj['str_id'] == str_id:
 
                                 if reportType == "Weekly":
                                     extraction = weekly_extraction.prepare_all_dfs(sheets,xl)
@@ -123,7 +131,7 @@ def upload_file(
                                     }
                                     )    
                             else:
-                                file_status.append({'file_name':fname,"message":"str_id or corporation name mismatch, please check ","status":400})       
+                                file_status.append({'file_name':fname,"message":"Profit centre already mapped with another STR ID","status":400})       
 
                         else:
                             file_status.append({'file_name':fname,'message':'file already exist please check', 'status':500})
