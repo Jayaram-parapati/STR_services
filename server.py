@@ -106,30 +106,33 @@ def upload_file(
                             
                             matchObj = db[f'{reportType}_uploads'].find_one(query)
                             
-                            if report['response']['str_id'] == str_id or matchObj['str_id'] == str_id:
+                            if  matchObj is None or matchObj['str_id'] == str_id:
+                                if report['response']['str_id'] == str_id:
 
-                                if reportType == "Weekly":
-                                    extraction = weekly_extraction.prepare_all_dfs(sheets,xl)
-                                    if extraction["status"] == 200:
-                                        filedata.update({"report_type":reportType,"date_range":reportDate,"extraction_report_id":extraction["report_id"]})
-                                        db["Weekly_uploads"].insert_one(filedata)
-                                        
-                                elif reportType == "Monthly": 
-                                    extraction = monthly_extraction.prepare_all_dfs_monthly(sheets,xl)
-                                    if extraction["status"] == 200:
-                                        filedata.update({"report_type":reportType,"date_range":reportDate,"extraction_report_id":extraction["report_id"]})
-                                        db["Monthly_uploads"].insert_one(filedata)
+                                    if reportType == "Weekly":
+                                        extraction = weekly_extraction.prepare_all_dfs(sheets,xl)
+                                        if extraction["status"] == 200:
+                                            filedata.update({"report_type":reportType,"date_range":reportDate,"extraction_report_id":extraction["report_id"]})
+                                            db["Weekly_uploads"].insert_one(filedata)
+                                            
+                                    elif reportType == "Monthly": 
+                                        extraction = monthly_extraction.prepare_all_dfs_monthly(sheets,xl)
+                                        if extraction["status"] == 200:
+                                            filedata.update({"report_type":reportType,"date_range":reportDate,"extraction_report_id":extraction["report_id"]})
+                                            db["Monthly_uploads"].insert_one(filedata)
 
+                                    else:
+                                        file_status.append({'file_name':fname,'message':'Invalid file', 'status':500})
+
+                                    file_status.append(
+                                        {'file_name':fname,
+                                        's3_key':f"https://hgtech-str-files.s3.ap-south-1.amazonaws.com/{unique_filename}",
+                                        'message':"successfully uploaded",
+                                        'status':extraction['status']
+                                        }
+                                        )
                                 else:
-                                    file_status.append({'file_name':fname,'message':'Invalid file', 'status':500})
-
-                                file_status.append(
-                                    {'file_name':fname,
-                                    's3_key':f"https://hgtech-str-files.s3.ap-south-1.amazonaws.com/{unique_filename}",
-                                    'message':"successfully uploaded",
-                                    'status':extraction['status']
-                                    }
-                                    )    
+                                    file_status.append({'file_name':fname,"message":"Plese check the STR Id entered","status":400})          
                             else:
                                 file_status.append({'file_name':fname,"message":"Profit centre already mapped with another STR ID","status":400})       
 
