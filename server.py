@@ -99,7 +99,7 @@ def upload_file(
                         check_uploadFile = api.check_upload_file(corporation_id,profit_center_id,str_id,reportDate,reportType)
                         if not check_uploadFile:
                             
-                            query = {"corporation_id":corporation_id}
+                            query = {"corporation_id":corporation_id,"delete_status":0}
                             
                             if profit_center_id:
                                 query.update({"profit_center_id":profit_center_id})

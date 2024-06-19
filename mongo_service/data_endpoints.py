@@ -958,7 +958,7 @@ class APIendpoints(connect_to_MongoDb):
             "date_range": {
                 "$gte": date[0],
                 "$lte": date[1]
-            }
+            },"delete_status":0
         }
         if pc_id:
             query.update({"profit_center_id":pc_id})
@@ -1025,7 +1025,7 @@ class APIendpoints(connect_to_MongoDb):
                 "data":[],
                 "status_code":400
             }
-            res = self.db.Monthly_uploads.find_one({"corporation_id":corporation_id},{"_id":0,"extraction_report_id":0})
+            res = self.db.Monthly_uploads.find_one({"corporation_id":corporation_id,"delete_status":0},{"_id":0,"extraction_report_id":0})
             if res:
                 corp_name = res["corporation_name"]
                 result.update({
@@ -1106,7 +1106,7 @@ class APIendpoints(connect_to_MongoDb):
                 "data":[],
                 "status_code":400
             }
-            res = self.db.Weekly_uploads.find_one({"corporation_id":corporation_id},{"_id":0,"extraction_report_id":0})
+            res = self.db.Weekly_uploads.find_one({"corporation_id":corporation_id,"delete_status":0},{"_id":0,"extraction_report_id":0})
             if res:
                 corp_name = res["corporation_name"]
                 result.update({
