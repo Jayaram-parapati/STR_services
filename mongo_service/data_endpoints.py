@@ -10,7 +10,7 @@ class APIendpoints(connect_to_MongoDb):
     def __init__(self):
         super().__init__()
         
-    def get_week_data(self,data):
+    def get_week_data(self,data,**kwargs):
         try:
             corp_id = data["corporation_id"]
             pc_id = data.get("profit_center_id",None)
@@ -33,6 +33,7 @@ class APIendpoints(connect_to_MongoDb):
             }
             if pc_id:
                 obj_id_query.update({"profit_center_id":pc_id})
+          
             obj = self.db.Weekly_uploads.find_one(obj_id_query)
             if obj is None:
                 raise HTTPException(status_code=400,
@@ -58,7 +59,22 @@ class APIendpoints(connect_to_MongoDb):
                             "data":list(self.db[collection].aggregate(pipeline))
                         })
                 return res
-            
+          
+            viewby = data.get("viewBy",None)
+            if viewby:
+                if viewby == 'Day':
+                    pipeline[0]["$match"].update({"tag_type":{"$exists":False}})
+                    pipeline[1]["$project"].pop("change_rate")
+                    if kwargs["diff_days"] > 7:
+                        documents = list(self.db.Weekly_uploads.find(obj_id_query))
+                        str_id_objIds = [doc["extraction_report_id"] for doc in documents]
+                        pipeline[0]["$match"]["metadata.str_id"] = {"$in":str_id_objIds}
+                        
+                    
+                    
+                    
+                    
+                    
             result ={}
             response_data.update({"status_code":200,"detail":"Data retrieved successfully"})
             result.update(response_data)
@@ -673,6 +689,106 @@ class APIendpoints(connect_to_MongoDb):
                 "error":str(err)
             }
             return result 
+    
+    def new_get_range_data(self,data):
+        try:
+            corp_id = data["corporation_id"]
+            pc_id = data.get("profit_center_id",None)
+    
+            start_query_date = data["startdate"]
+            start_ts_obj = datetime.strptime(start_query_date,"%Y-%m-%d")
+            
+            end_query_date = data["enddate"]
+            end_ts_obj = datetime.strptime(end_query_date,"%Y-%m-%d")
+            
+            today = datetime.today()
+            if start_ts_obj >= today:
+                raise HTTPException(status_code=400,
+                                    detail="searching dates are invalid")
+            
+            all_dates = []
+            current_date = start_ts_obj
+            while current_date <= end_ts_obj:
+                all_dates.append(current_date)
+                current_date += timedelta(days=1)
+            
+            obj_id_query = {
+                "corporation_id":corp_id,
+                "date_range":{"$elemMatch": {"$gte": start_ts_obj,"$lte": end_ts_obj}},
+                "delete_status":0,
+            }
+            if pc_id:
+                obj_id_query.update({"profit_center_id":pc_id})
+            weekly_documents = list(self.db.Weekly_uploads.find(obj_id_query))
+            monthly_documents = list(self.db.Monthly_uploads.find(obj_id_query))
+            
+            weekly_str_id_objIds = [doc["extraction_report_id"] for doc in weekly_documents]
+            monthly_str_id_objIds = [doc["extraction_report_id"] for doc in monthly_documents]
+            
+            if len(weekly_documents)==0 and len(monthly_documents)==0:
+                raise HTTPException(status_code=400,
+                                    detail=f"No data found for {corp_id} between {start_query_date} and {end_query_date}")
+            if len(weekly_documents) != 0:
+                corp_details_obj = weekly_documents[0]
+            else:corp_details_obj = monthly_documents[0]
+                
+            response_data = {"corporation_name":corp_details_obj["corporation_name"],
+                            "corporation_id":corp_details_obj["corporation_id"],
+                            "profitcenter_id":corp_details_obj.get("profit_center_id",None),
+                            "profitcenter_name":corp_details_obj.get("profit_center_name",None),
+                            "str_id":corp_details_obj["str_id"],
+                            }
+             
+            result ={}
+            response_data.update({"status_code":200,"detail":"Data retrieved successfully"})
+            result.update(response_data)
+            coll_names = ["adr","occupancy","revpar"]
+            collection = data.get("sheet",None)
+            if collection:
+                coll_names = [collection]
+            for collection_name in coll_names:
+                matched_objs = list(self.db[collection_name].find({"timestamp":{"$in":all_dates},"metadata.str_id": {"$in": weekly_str_id_objIds},"tag_type":{"$exists":False},"metadata.label":{"$ne":"Your rank"}},))
+                found_dates = [obj["timestamp"] for obj in matched_objs]
+                missing_dates_from_weekly = [date for date in all_dates if not date in found_dates]
+                missed_objs = list(self.db[collection_name+"_DailyByMonth"].find({"timestamp":{"$in":missing_dates_from_weekly},"metadata.str_id": {"$in": monthly_str_id_objIds}}))
+                matched_objs.extend(missed_objs)
+                pipeline = [
+                    {"$match":{"$or":matched_objs}},
+                    {"$group": {"_id": "$metadata.label","unique_changes": {"$addToSet": {"timestamp": "$timestamp","change": "$change"}}}},
+                    {"$project": {"_id": 0,"label": "$_id","change": {"$avg": "$unique_changes.change"}}}
+                ]
+                if collection:
+                    res = {}
+                    res.update(response_data)
+                    res.update({
+                                "sheet":collection,
+                                "data":list(self.db[collection].aggregate(pipeline)),
+                                })
+                    return res
+                result.update({collection_name:list(self.db[collection_name].aggregate(pipeline))})
+            return result
+         
+        except HTTPException as err:
+            result = {
+                "status_code":400
+            }
+            res = self.db.Weekly_uploads.find_one({"corporation_id":corp_id},{"_id":0,"extraction_report_id":0})
+            if res:
+                corp_name = res["corporation_name"]
+                result.update({
+                    "corporation_name":corp_name,
+                    "detail": f"No data found for {corp_name}",
+                })
+            else:
+                result.update({"detail":"No data found"})    
+            return result 
+        except Exception as err:
+            result = {
+                "status_code":500,
+                "detail":"No detail found",
+                "error":str(err)
+            }
+            return result  
         
     def check_upload_file(self,corp_id,pc_id,str_id,date,reportType):
         query = {
@@ -1184,7 +1300,7 @@ class APIendpoints(connect_to_MongoDb):
                             pc_set.add(pc_id)
                         for pc_id in pc_set:
                             corp_data.update({"profit_center_id":pc_id})
-                            corp_res = self.get_range_data(corp_data)
+                            corp_res = self.new_get_range_data(corp_data)
                             data_list = corp_res.get("data",None)
                             if data_list:
                                 all_corp_res.append(corp_res)
@@ -1478,5 +1594,34 @@ class APIendpoints(connect_to_MongoDb):
             }
             return result
         
-       
-           
+   
+        
+    def get_report_data(self,data):
+        try:
+            corp_id = data["corporation_id"]
+            pc_id = data.get("profit_center_id",None)
+            
+            start_query_date = data["startdate"]
+            start_ts_obj = datetime.strptime(start_query_date,"%Y-%m-%d")
+            
+            end_query_date = data["enddate"]
+            end_ts_obj = datetime.strptime(end_query_date,"%Y-%m-%d")
+            
+            today = datetime.today()
+            if start_ts_obj >= today or end_ts_obj >= today:
+                raise HTTPException(status_code=400,detail="searching dates are invalid")
+            
+            dates_difference = end_ts_obj - start_ts_obj
+            difference_days = dates_difference.days
+            max_days = calendar.monthrange(start_ts_obj.year,start_ts_obj.month)[1]
+            
+            viewby = data.get("viewBy",None)
+            
+            if viewby == 'Day' :
+                result = self.get_week_data(data,diff_days=difference_days)
+                return result
+            
+            
+              
+        except Exception as e:
+            pass

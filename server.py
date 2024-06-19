@@ -212,7 +212,7 @@ def year_data(data:YearlyData):
 def range_data(data:WeekData):
     try:
         data_dict = data.model_dump()
-        result = api.get_range_data(data_dict)
+        result = api.new_get_range_data(data_dict)
         return result
     except HTTPException as e:
         raise e  
@@ -399,6 +399,51 @@ def str_kpi(data:WeekData):
                 "error":str(e)
             }
         return result    
+
+
+# @app.post('/getReportData',tags=["report data"])
+# def report_data(data:ReportData):
+#     try:
+#         data_dict = data.model_dump()
+#         result = api.get_report_data(data_dict)
+#         return result
+#     except Exception as e:
+#         result={
+#             "status_code":500,
+#             "detail":"No detail found",
+#             "error":str(e)
+#         }
+
+@app.post('/delete',tags=["delete upload file"])
+def delete_upload(data:deletefile):
+    try:
+        time_now = datetime.now()
+        data_dict = data.model_dump()
+        upload_id = data_dict["fileId"]
+        filetype = data_dict["fileType"]
+        user_id = data_dict["userId"]
+        collection = filetype+"_uploads"
+        res = db[collection].update_one({"_id":ObjectId(upload_id)},{"$set":{"delete_status":1,"deleted_at":time_now,"deleted_by":user_id}})
+        result = {}
+        if res.matched_count == 1:
+            result ={
+                "status_code":204,
+                "message":"File deleted succesfully"
+            }    
+            return result
+        else:
+            result ={
+                "status_code":400,
+                "message":"File Not Found"
+            } 
+        return result
+    except Exception as e:
+        result={
+            "status_code":500,
+            "detail":"No detail found",
+            "error":str(e)
+        }
+        return result
        
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8000)

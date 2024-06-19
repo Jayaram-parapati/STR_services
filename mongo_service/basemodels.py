@@ -57,4 +57,15 @@ class latestUploadData(BaseModel):
     type:str = Field(...,example="Weekly")
     corporation_id:str = Field(...,example="0x0A3BF741342744B043FFAA6EE07AB7270000")
     profit_center_id: Optional[str] = Field(None, example="0x6D08EDC0DEC39B8249C6441B9CA0697D0001")    
-       
+
+#report data basemodel
+
+class ReportData(WeekData):
+    viewBy:str = "Day"
+    
+#delete  basemodel
+
+class deletefile(BaseModel):
+    fileId:str = Field(...,example="66713b54e4c77ccb588bba9a")
+    fileType:str = Field(...,example="Weekly")
+    userId:str = Field(...,example="0xBD71F855F6CA738E47A9651817B9534C2000")

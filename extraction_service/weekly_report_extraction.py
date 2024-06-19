@@ -325,6 +325,7 @@ class Weekly_extraction(connect_to_MongoDb):
                 label_name =df_change.iloc[r,0]
                 if sub_label_name.startswith("Index") and label_name == "Comp Set":
                     label_name = labels_mapping[collection_name]
+   
                 for c in range(1,df_change.shape[1]):
                     record={}
                     record.update({"metadata": {"label": label_name, "str_id": str_id}})
@@ -332,6 +333,9 @@ class Weekly_extraction(connect_to_MongoDb):
                         change = df_change.iloc[r,c]
                     else: change = 'null'
                     if sub_label_name.endswith("Chg"):
+                        record.update({"change_rate":change})   
+                    if label_name.endswith("Chg"):
+                        record['metadata']['label'] = "Your rank"
                         record.update({"change_rate":change})   
                     else:record.update({"change":change})
                     if df_year_month.iloc[0, c] not in ["Current", "Run"]: 
@@ -343,30 +347,37 @@ class Weekly_extraction(connect_to_MongoDb):
                         tag_type = f"{df_year_month.iloc[0,c]} {df_year_month.iloc[1,c]}"
                         record.update({"timestamp":timestamp,"tag_type":tag_type,"week_range":week_range})
                     try:
-                        if config["save_to_db"] == True:
-                            q = {"timestamp":{"$eq":record['timestamp']},
-                                "metadata.str_id":str_id,
-                                "metadata.label":label_name,
-                                "tag_type":{"$exists":False}}
-                            if 'tag_type' in record:
-                                q.update({'tag_type':record['tag_type']})
-                            if label_name not in ["Market Scale","Occ % Chg","ADR % Chg","RevPAR % Chg"]:
-                                collection = coll_name
-                            else:
-                                collection = collection_name
-                                    
-                            match_obj = self.db[collection].find_one(q)
-                            if match_obj:
-                                if 'change' in match_obj and 'change_rate' in match_obj:
-                                    continue
-                                if 'change' in match_obj and 'change_rate' not in match_obj:
-                                    match_obj.update({"change_rate":record["change_rate"]})
-                                if 'change'  not in match_obj and 'change_rate' in match_obj:
-                                    match_obj.update({"change":record["change"]})   
-                                self.db[collection].delete_one({"_id":match_obj["_id"]})
-                                match_obj.pop("_id") 
-                                self.db[collection].insert_one(match_obj)    
-                            else:self.db[collection].insert_one(record)                           
+                        if week_range[0] <= timestamp <= week_range[1]:
+
+                            if config["save_to_db"] == True:
+                                q = {"timestamp":{"$eq":record['timestamp']},
+                                    "metadata.str_id":str_id,
+                                    "metadata.label":label_name,
+                                    "tag_type":{"$exists":False}}
+                                if 'tag_type' in record:
+                                    q.update({'tag_type':record['tag_type']})
+                                if label_name not in ["Market Scale"]:
+                                    collection = coll_name
+                                else:
+                                    collection = collection_name
+                                    record['metadata']['label'] = sub_label_name.split()[0]
+                                    q['metadata.label'] = sub_label_name.split()[0]
+                                
+                                if label_name.endswith("Chg"):
+                                    q['metadata.label'] = "Your rank"
+                                            
+                                match_obj = self.db[collection].find_one(q)
+                                if match_obj:
+                                    if 'change' in match_obj and 'change_rate' in match_obj:
+                                        continue
+                                    if 'change' in match_obj and 'change_rate' not in match_obj:
+                                        match_obj.update({"change_rate":record["change_rate"]})
+                                    if 'change'  not in match_obj and 'change_rate' in match_obj:
+                                        match_obj.update({"change":record["change"]})   
+                                    self.db[collection].delete_one({"_id":match_obj["_id"]})
+                                    match_obj.pop("_id") 
+                                    self.db[collection].insert_one(match_obj)    
+                                else:self.db[collection].insert_one(record)                           
                     except Exception as e:
                         print(e)   
                 
@@ -435,16 +446,17 @@ class Weekly_extraction(connect_to_MongoDb):
                         }
                         # print(record)
                         try:
-                            if config["save_to_db"] == True:
-                                if record["change"] != 'null':
-                                    q = {"timestamp":{"$eq":record['timestamp']},
-                                    "metadata.str_id":str_id,
-                                    "metadata.label":label_name}
-                                    match_obj = self.db[collection_name].find_one(q)
-                                    if match_obj:
-                                        self.db[collection_name].delete_one({"_id":match_obj["_id"]}) 
-                                        self.db[collection_name].insert_one(record)
-                                    else:self.db[collection_name].insert_one(record)                           
+                            if week_range[0] <= timestamp_obj <= week_range[1]:
+                                if config["save_to_db"] == True:
+                                    if record["change"] != 'null':
+                                        q = {"timestamp":{"$eq":record['timestamp']},
+                                        "metadata.str_id":str_id,
+                                        "metadata.label":label_name}
+                                        match_obj = self.db[collection_name].find_one(q)
+                                        if match_obj:
+                                            self.db[collection_name].delete_one({"_id":match_obj["_id"]}) 
+                                            self.db[collection_name].insert_one(record)
+                                        else:self.db[collection_name].insert_one(record)                           
                         except Exception as e:
                             print(e)
 
