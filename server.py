@@ -105,7 +105,10 @@ def upload_file(
                                 query.update({"profit_center_id":profit_center_id})
                             
                             matchObj = db[f'{reportType}_uploads'].find_one(query)
-                            
+                            if matchObj is None:
+                                if report_type == 'Weekly': matchObj = db['Monthly_uploads'].find_one(query)
+                                else:matchObj = db['Weekly_uploads'].find_one(query)
+                         
                             if  matchObj is None or matchObj['str_id'] == str_id:
                                 if report['response']['str_id'] == str_id:
 
