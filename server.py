@@ -192,7 +192,7 @@ def month_data(data:MonthData):
 def monthly_data(data:MonthlyData):
     try:
         data_dict = data.model_dump()
-        result = api.get_monthly_data(data_dict)
+        result = api.new_get_monthly_data(data_dict)
         # print(result)
         return result
     except HTTPException as e:
@@ -204,7 +204,7 @@ def monthly_data(data:MonthlyData):
 def year_data(data:YearlyData):
     try:
         data_dict = data.model_dump()
-        result = api.get_yearly_data(data_dict)
+        result = api.new_get_yearly_data(data_dict)
         return result
     except HTTPException as e:
         raise e  
