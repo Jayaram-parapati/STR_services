@@ -106,8 +106,10 @@ def upload_file(
                             
                             matchObj = db[f'{reportType}_uploads'].find_one(query)
                             if matchObj is None:
-                                if report_type == 'Weekly': matchObj = db['Monthly_uploads'].find_one(query)
-                                else:matchObj = db['Weekly_uploads'].find_one(query)
+                                if reportType == 'Weekly': 
+                                    matchObj = db['Monthly_uploads'].find_one(query)
+                                else:
+                                    matchObj = db['Weekly_uploads'].find_one(query)
                          
                             if  matchObj is None or matchObj['str_id'] == str_id:
                                 if report['response']['str_id'] == str_id:
@@ -234,7 +236,7 @@ def import_files(data:Dict[str,str]=Body(...)):
         query_params = {"corporation_id":corporation_id,
                         "report_type":filetype,
                         "year":year}
-        str_match_query = {"corporation_id": corporation_id}
+        str_match_query = {"corporation_id": corporation_id,"delete_status":0}
         if profit_center:
             query_params.update({"profit_center":profit_center})
             str_match_query.update({"profit_center_id":profit_center})
@@ -346,10 +348,10 @@ def latest_upload_file(data_dict:latestUploadData):
         coll = data["type"]
         collection = coll+"_uploads"
         pc_id = data.get("profit_center_id",None)
-        match_query = {"corporation_id":corp_id}
+        match_query = {"corporation_id":corp_id,"delete_status":0}
         if pc_id:
             match_query.update({"profit_center_id":pc_id})
-        res = list(db[collection].find(match_query,{"_id": 0, "extraction_report_id": 0}).sort("date_range", -1).limit(1))
+        res = list(db[collection].find(match_query,{"_id": 0, "extraction_report_id": 0,"delete_status":0}).sort("date_range", -1).limit(1))
         if len(res) == 0:
             result={
                 "data":[],
