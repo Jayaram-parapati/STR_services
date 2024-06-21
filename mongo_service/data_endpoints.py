@@ -155,9 +155,7 @@ class APIendpoints(connect_to_MongoDb):
                             "week_range": [
                                             {"$dateToString": {"date": {"$dateFromParts": {"isoWeekYear": "$_id.year","isoWeek": "$_id.week","isoDayOfWeek": 0}}}},
                                             {"$dateToString": {"date": {"$dateFromParts": {"isoWeekYear": "$_id.year","isoWeek": "$_id.week","isoDayOfWeek": 6}}}},  
-                                        ]
-                            
-                            
+                                        ] 
                         }
                     },
                     {"$sort": {"timestamp": 1}},
@@ -643,6 +641,13 @@ class APIendpoints(connect_to_MongoDb):
             if start_ts_obj >= today:
                 raise HTTPException(status_code=400,
                                     detail="searching dates are invalid")
+            
+            start_ts = data.get("start_obj_from_report",None)
+            end_ts = data.get("end_obj_from_report",None)
+            if start_ts and end_ts:
+                start_ts_obj = datetime.strptime(f"{start_ts.year} {start_ts.month} 01","%Y %m %d") 
+                max_days = calendar.monthrange(end_ts.year,end_ts.month)[1]
+                end_ts_obj = datetime.strptime(f"{end_ts.year} {end_ts.month} {max_days}","%Y %m %d")
                 
             obj_id_query = {
                 "corporation_id":corp_id,
@@ -1257,11 +1262,57 @@ class APIendpoints(connect_to_MongoDb):
                     return res
               
                 if viewby:
-                    groupstage_query ={"_id":{"timestamp":"$timestamp","label":"$metadata.label"},"change":{"$first":"$change"},"change_rate":{"$first":"$change_rate"}}
-                    pipeline[3]["$group"].update(groupstage_query)
-                    projectstage_query ={"_id":0,"timestamp":"$_id.timestamp","label":"$_id.label","change":"$change","change_rate":"$change_rate"}
-                    pipeline[4]["$project"].update(projectstage_query)
-                    pipeline.insert(5,{"$sort":{"timestamp":1}})
+                    if viewby == 'Day':
+                        groupstage_query ={"_id":{"timestamp":"$timestamp","label":"$metadata.label"},"change":{"$first":"$change"},"change_rate":{"$first":"$change_rate"}}
+                        pipeline[3]["$group"].update(groupstage_query)
+                        projectstage_query ={"_id":0,"timestamp":"$_id.timestamp","label":"$_id.label","change":"$change","change_rate":"$change_rate"}
+                        pipeline[4]["$project"].update(projectstage_query)
+                        pipeline.insert(5,{"$sort":{"timestamp":1}})
+                    if viewby == 'Week':
+                        groupstage_query ={
+                            "_id": {
+                                "year": {"$year": "$timestamp"},
+                                "week": {"$week": "$timestamp"},
+                                "label": "$metadata.label",
+                            },
+                            "avg_change":{
+                            "$avg":{
+                                "$cond": {
+                                    "if": { "$ne": ["$metadata.label", "Your rank"] },
+                                    "then":{
+                                        "$cond":{
+                                            "if": { "$eq": ["$change", "null"] },
+                                            "then": 0,
+                                            "else": { "$toDouble": "$change" }
+                                            }},
+                                    "else": {
+                                        "$cond": {
+                                            "if": { "$eq": [{ "$arrayElemAt": [{ "$split": ["$change", " of "] }, 0] }, "null"] },
+                                            "then": 0,
+                                            "else": { "$toInt": { "$arrayElemAt": [{ "$split": ["$change", " of "] }, 0] } }
+                                        }
+                                    }
+                                }}}
+                        }
+                        pipeline[3]["$group"].update(groupstage_query)
+                        projectstage_query ={
+                            "_id": 0,
+                            "timestamp": {
+                                "$dateFromParts": {"isoWeekYear": "$_id.year","isoWeek": "$_id.week","isoDayOfWeek": 0}
+                            },
+                            "metadata.label": "$_id.label",
+                            "change":{
+                            "$cond":{
+                                "if":{"$ne":["$_id.label","Your rank"]},
+                                "then":"$avg_change",
+                                "else":{"$concat":[{"$toString":{"$round":"$avg_change"}}," of 5"]}}},
+                            "week_range": [
+                                            {"$dateToString": {"date": {"$dateFromParts": {"isoWeekYear": "$_id.year","isoWeek": "$_id.week","isoDayOfWeek": 0}}}},
+                                            {"$dateToString": {"date": {"$dateFromParts": {"isoWeekYear": "$_id.year","isoWeek": "$_id.week","isoDayOfWeek": 6}}}},  
+                                        ] 
+                        }
+                        pipeline[4]["$project"].update(projectstage_query)
+                        pipeline.insert(5,{"$sort":{"timestamp":1}})
                     
                 result.update({collection_name:list(self.db[collection_name].aggregate(pipeline))})
             return result
@@ -1675,8 +1726,7 @@ class APIendpoints(connect_to_MongoDb):
                     corp_data.update({"corporation_id":corp})
                     multipc_match_query = {"corporation_id":corp,"delete_status":0,"date_range":{"$elemMatch": {"$gte": start_ts_obj,"$lte": end_ts_obj}}}
                     multi_pc_data = list(self.db.Monthly_uploads.find(multipc_match_query,{"_id":0,"extraction_report_id":0}))
-                    if len(multi_pc_data)==0:
-                        multi_pc_data = list(self.db.Weekly_uploads.find(multipc_match_query,{"_id":0,"extraction_report_id":0}))
+                    multi_pc_data.extend(self.db.Weekly_uploads.find(multipc_match_query,{"_id":0,"extraction_report_id":0}))
                    
                     if len(multi_pc_data) != 0:
                         pc_set = set()
@@ -1737,7 +1787,7 @@ class APIendpoints(connect_to_MongoDb):
                     corp_data.update({"corporation_id":corp})
                     multi_pc_match_query = {"corporation_id":corp,"delete_status":0,"date_range":{"$elemMatch": {"$gte": start_ts_obj,"$lte": end_ts_obj}}}
                     multi_pc_data = list(self.db.Monthly_uploads.find(multi_pc_match_query,{"_id":0,"extraction_report_id":0}))
-                    if len(multi_pc_data)==0:multi_pc_data = list(self.db.Weekly_uploads.find(multi_pc_match_query,{"_id":0,"extraction_report_id":0}))
+                    multi_pc_data.extend(self.db.Weekly_uploads.find(multi_pc_match_query,{"_id":0,"extraction_report_id":0}))
                     
                     if len(multi_pc_data) != 0:
                         pc_set = set()
@@ -1788,14 +1838,17 @@ class APIendpoints(connect_to_MongoDb):
             end_query_date = data["enddate"]
             end_ts_obj = datetime.strptime(end_query_date,"%Y-%m-%d")
             
+            start_ts_obj_for_search = datetime.strptime(f"{start_ts_obj.year} {start_ts_obj.month} 01","%Y %m %d") 
+            max_days = calendar.monthrange(end_ts_obj.year,end_ts_obj.month)[1]
+            end_ts_obj_for_search = datetime.strptime(f"{end_ts_obj.year} {end_ts_obj.month} {max_days}","%Y %m %d")
+            
             corporations = data["corporations"]
             for corp in corporations:
                 try:
                     corp_data.update({"corporation_id":corp})
-                    multi_pc_match_query = {"corporation_id":corp,"delete_status":0,"date_range":{"$elemMatch": {"$gte": start_ts_obj,"$lte": end_ts_obj}}}
+                    multi_pc_match_query = {"corporation_id":corp,"delete_status":0,"date_range":{"$elemMatch": {"$gte": start_ts_obj_for_search,"$lte": end_ts_obj_for_search}}}
                     multi_pc_data = list(self.db.Weekly_uploads.find(multi_pc_match_query,{"_id":0,"extraction_report_id":0}))
-                    if len(multi_pc_data) == 0:
-                        multi_pc_data = list(self.db.Monthly_uploads.find(multi_pc_match_query,{"_id":0,"extraction_report_id":0}))
+                    multi_pc_data.extend(self.db.Monthly_uploads.find(multi_pc_match_query,{"_id":0,"extraction_report_id":0}))
  
                     if len(multi_pc_data) != 0:
                         pc_set = set()
@@ -2121,17 +2174,16 @@ class APIendpoints(connect_to_MongoDb):
             
             viewby = data.get("viewBy",None)
             
-            if viewby=='Day':
+            if viewby=='Day' or viewby=='Week':
                 result = self.new_get_range_data(data)
                 return result
             
             if viewby=='Month':
-                 
+                data["start_obj_from_report"]=start_ts_obj 
+                data["end_obj_from_report"]=end_ts_obj
+                data["year"]=start_ts_obj.year 
                 result = self.new_get_monthly_data(data)
                 return result
-                
-            
-            
-              
+    
         except Exception as e:
             pass
