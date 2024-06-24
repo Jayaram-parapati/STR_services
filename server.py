@@ -419,18 +419,18 @@ def str_kpi(data:WeekData):
         return result    
 
 
-# @app.post('/getReportData',tags=["report data"])
-# def report_data(data:ReportData):
-#     try:
-#         data_dict = data.model_dump()
-#         result = api.get_report_data(data_dict)
-#         return result
-#     except Exception as e:
-#         result={
-#             "status_code":500,
-#             "detail":"No detail found",
-#             "error":str(e)
-#         }
+@app.post('/getReportData',tags=["report data"])
+def report_data(data:ReportData):
+    try:
+        data_dict = data.model_dump()
+        result = api.get_report_data(data_dict)
+        return result
+    except Exception as e:
+        result={
+            "status_code":500,
+            "detail":"No detail found",
+            "error":str(e)
+        }
 
 @app.post('/delete',tags=["delete upload file"])
 def delete_upload(data:deletefile):
