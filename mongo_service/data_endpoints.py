@@ -719,7 +719,22 @@ class APIendpoints(connect_to_MongoDb):
                                                 "else": { "$toInt": { "$arrayElemAt": [{ "$split": ["$change", " of "] }, 0] } }
                                             }
                                         }
-                                    }}}
+                                    }}},
+                            "denominator":{
+                                "$avg":{
+                                    "$cond":{
+                                        "if":{"$eq":["$metadata.label", "Your rank"]},
+                                        "then":{
+                                            "$cond":{
+                                                "if": { "$eq": [{ "$arrayElemAt": [{ "$split": ["$change", " of "] }, 1] }, "null"] },
+                                                "then": 0,
+                                                "else": { "$toInt": { "$arrayElemAt": [{ "$split": ["$change", " of "] }, 1] } }
+                                            }
+                                        },
+                                        "else":1
+                                    }
+                                }
+                            }
                         }
                     },
                     {
@@ -733,7 +748,7 @@ class APIendpoints(connect_to_MongoDb):
                             "$cond":{
                                 "if":{"$ne":["$_id.label","Your rank"]},
                                 "then":"$avg_change",
-                                "else":{"$concat":[{"$toString":{"$round":"$avg_change"}}," of 5"]}}}
+                                "else":{"$concat":[{"$toString":{"$round":"$avg_change"}}," of ",{"$toString":{"$round":"$denominator"}}]}}}
                      }   
                     },
                 ]
@@ -878,7 +893,22 @@ class APIendpoints(connect_to_MongoDb):
                                                 "else": { "$toInt": { "$arrayElemAt": [{ "$split": ["$change", " of "] }, 0] } }
                                             }
                                         }
-                                    }}}
+                                    }}},
+                            "denominator":{
+                                "$avg":{
+                                    "$cond":{
+                                        "if":{"$eq":["$metadata.label", "Your rank"]},
+                                        "then":{
+                                            "$cond":{
+                                                "if": { "$eq": [{ "$arrayElemAt": [{ "$split": ["$change", " of "] }, 1] }, "null"] },
+                                                "then": 0,
+                                                "else": { "$toInt": { "$arrayElemAt": [{ "$split": ["$change", " of "] }, 1] } }
+                                            }
+                                        },
+                                        "else":1
+                                    }
+                                }
+                            }
                         }
                     },
                     {
@@ -892,7 +922,7 @@ class APIendpoints(connect_to_MongoDb):
                             "$cond":{
                                 "if":{"$ne":["$_id.label","Your rank"]},
                                 "then":"$avg_change",
-                                "else":{"$concat":[{"$toString":{"$round":"$avg_change"}}," of 5"]}}}
+                                "else":{"$concat":[{"$toString":{"$round":"$avg_change"}}," of ",{"$toString":{"$round":"$denominator"}}]}}}
                      }   
                     },
                 ]
@@ -931,7 +961,23 @@ class APIendpoints(connect_to_MongoDb):
                                             "else": { "$toInt": { "$arrayElemAt": [{ "$split": ["$change", " of "] }, 0] } }
                                         }
                                     }
-                                }}}}},
+                                }}},
+                        "denominator":{
+                                "$avg":{
+                                    "$cond":{
+                                        "if":{"$eq":["$metadata.label", "Your rank"]},
+                                        "then":{
+                                            "$cond":{
+                                                "if": { "$eq": [{ "$arrayElemAt": [{ "$split": ["$change", " of "] }, 1] }, "null"] },
+                                                "then": 0,
+                                                "else": { "$toInt": { "$arrayElemAt": [{ "$split": ["$change", " of "] }, 1] } }
+                                            }
+                                        },
+                                        "else":1
+                                    }
+                                }
+                            }
+                        }},
                     {"$project":{
                         "_id":0,
                         "year":"$_id.year",
@@ -940,7 +986,7 @@ class APIendpoints(connect_to_MongoDb):
                             "$cond":{
                                 "if":{"$ne":["$_id.label","Your rank"]},
                                 "then":"$avg_change",
-                                "else":{"$concat":[{"$toString":{"$round":"$avg_change"}}," of 5"]}}}}},
+                                "else":{"$concat":[{"$toString":{"$round":"$avg_change"}}," of ",{"$toString":{"$round":"$denominator"}}]}}}}},
                     {"$sort":{"year":1}}
                 ]
                 if collection:
@@ -1276,23 +1322,56 @@ class APIendpoints(connect_to_MongoDb):
                                 "label": "$metadata.label",
                             },
                             "avg_change":{
-                            "$avg":{
-                                "$cond": {
-                                    "if": { "$ne": ["$metadata.label", "Your rank"] },
-                                    "then":{
-                                        "$cond":{
-                                            "if": { "$eq": ["$change", "null"] },
-                                            "then": 0,
-                                            "else": { "$toDouble": "$change" }
-                                            }},
-                                    "else": {
-                                        "$cond": {
-                                            "if": { "$eq": [{ "$arrayElemAt": [{ "$split": ["$change", " of "] }, 0] }, "null"] },
-                                            "then": 0,
-                                            "else": { "$toInt": { "$arrayElemAt": [{ "$split": ["$change", " of "] }, 0] } }
+                                "$avg":{
+                                    "$cond": {
+                                        "if": { "$ne": ["$metadata.label", "Your rank"] },
+                                        "then":{
+                                            "$cond":{
+                                                "if": { "$eq": ["$change", "null"] },
+                                                "then": 0,
+                                                "else": { "$toDouble": "$change" }
+                                                }},
+                                        "else": {
+                                            "$cond": {
+                                                "if": { "$eq": [{ "$arrayElemAt": [{ "$split": ["$change", " of "] }, 0] }, "null"] },
+                                                "then": 0,
+                                                "else": { "$toInt": { "$arrayElemAt": [{ "$split": ["$change", " of "] }, 0] } }
+                                            }
                                         }
+                                    }}},
+                            "avg_change_rate":{
+                                "$avg":{
+                                    "$cond": {
+                                        "if": { "$ne": ["$metadata.label", "Your rank"] },
+                                        "then":{
+                                            "$cond":{
+                                                "if": { "$eq": ["$change_rate", "null"] },
+                                                "then": 0,
+                                                "else": { "$toDouble": "$change_rate" }
+                                                }},
+                                        "else": {
+                                            "$cond": {
+                                                "if": { "$eq": [{ "$arrayElemAt": [{ "$split": ["$change_rate", " of "] }, 0] }, "null"] },
+                                                "then": 0,
+                                                "else": { "$toInt": { "$arrayElemAt": [{ "$split": ["$change_rate", " of "] }, 0] } }
+                                            }
+                                        }
+                                    }}},
+                            "denominator":{
+                                "$avg":{
+                                    "$cond":{
+                                        "if":{"$eq":["$metadata.label", "Your rank"]},
+                                        "then":{
+                                            "$cond":{
+                                                "if": { "$eq": [{ "$arrayElemAt": [{ "$split": ["$change", " of "] }, 1] }, "null"] },
+                                                "then": 0,
+                                                "else": { "$toInt": { "$arrayElemAt": [{ "$split": ["$change", " of "] }, 1] } }
+                                            }
+                                        },
+                                        "else":1
                                     }
-                                }}}
+                                }
+                            }
                         }
                         pipeline[3]["$group"].update(groupstage_query)
                         projectstage_query ={
@@ -1302,10 +1381,15 @@ class APIendpoints(connect_to_MongoDb):
                             },
                             "metadata.label": "$_id.label",
                             "change":{
-                            "$cond":{
-                                "if":{"$ne":["$_id.label","Your rank"]},
-                                "then":"$avg_change",
-                                "else":{"$concat":[{"$toString":{"$round":"$avg_change"}}," of 5"]}}},
+                                "$cond":{
+                                    "if":{"$ne":["$_id.label","Your rank"]},
+                                    "then":"$avg_change",
+                                    "else":{"$concat":[{"$toString":{"$round":"$avg_change"}}," of ",{"$toString":{"$round":"$denominator"}}]}}},
+                            "change_rate":{
+                                "$cond":{
+                                    "if":{"$ne":["$_id.label","Your rank"]},
+                                    "then":"$avg_change_rate",
+                                    "else":{"$concat":[{"$toString":{"$round":"$avg_change_rate"}}," of ",{"$toString":{"$round":"$denominator"}}]}}},
                             "week_range": [
                                             {"$dateToString": {"date": {"$dateFromParts": {"isoWeekYear": "$_id.year","isoWeek": "$_id.week","isoDayOfWeek": 0}}}},
                                             {"$dateToString": {"date": {"$dateFromParts": {"isoWeekYear": "$_id.year","isoWeek": "$_id.week","isoDayOfWeek": 6}}}},  

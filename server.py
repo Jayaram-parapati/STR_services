@@ -110,39 +110,52 @@ def upload_file(
                                     matchObj = db['Monthly_uploads'].find_one(query)
                                 else:
                                     matchObj = db['Weekly_uploads'].find_one(query)
-                         
+
                             if  matchObj is None or matchObj['str_id'] == str_id:
-                                if report['response']['str_id'] == str_id:
+                            
+                                str_match = db["Weekly_uploads"].find_one({"str_id":str_id})
+                                if str_match is None:
+                                    str_match = db["Weekly_uploads"].find_one({"str_id":str_id})
+                                if str_match:
+                                    str_match_pcId = str_match.get("profit_center_id",None)
+                                
+                                if str_match is None or  (str_match["corporation_id"] == corporation_id and str_match_pcId == profit_center_id):
+                                
+                                    if report['response']['str_id'] == str_id:
 
-                                    if reportType == "Weekly":
-                                        extraction = weekly_extraction.prepare_all_dfs(sheets,xl)
-                                        if extraction["status"] == 200:
-                                            filedata.update({"report_type":reportType,"date_range":reportDate,"extraction_report_id":extraction["report_id"]})
-                                            db["Weekly_uploads"].insert_one(filedata)
-                                            
-                                    elif reportType == "Monthly": 
-                                        extraction = monthly_extraction.prepare_all_dfs_monthly(sheets,xl)
-                                        if extraction["status"] == 200:
-                                            filedata.update({"report_type":reportType,"date_range":reportDate,"extraction_report_id":extraction["report_id"]})
-                                            db["Monthly_uploads"].insert_one(filedata)
+                                        if reportType == "Weekly":
+                                            extraction = weekly_extraction.prepare_all_dfs(sheets,xl)
+                                            if extraction["status"] == 200:
+                                                filedata.update({"report_type":reportType,"date_range":reportDate,"extraction_report_id":extraction["report_id"]})
+                                                db["Weekly_uploads"].insert_one(filedata)
+                                                
+                                        elif reportType == "Monthly": 
+                                            extraction = monthly_extraction.prepare_all_dfs_monthly(sheets,xl)
+                                            if extraction["status"] == 200:
+                                                filedata.update({"report_type":reportType,"date_range":reportDate,"extraction_report_id":extraction["report_id"]})
+                                                db["Monthly_uploads"].insert_one(filedata)
 
+                                        else:
+                                            file_status.append({'file_name':fname,'message':'Invalid file', 'status':500})
+
+                                        file_status.append(
+                                            {'file_name':fname,
+                                            's3_key':f"https://hgtech-str-files.s3.ap-south-1.amazonaws.com/{unique_filename}",
+                                            'message':"successfully uploaded",
+                                            'status':extraction['status']
+                                            }
+                                            )
                                     else:
-                                        file_status.append({'file_name':fname,'message':'Invalid file', 'status':500})
-
-                                    file_status.append(
-                                        {'file_name':fname,
-                                        's3_key':f"https://hgtech-str-files.s3.ap-south-1.amazonaws.com/{unique_filename}",
-                                        'message':"successfully uploaded",
-                                        'status':extraction['status']
-                                        }
-                                        )
+                                        file_status.append({'file_name':fname,"message":"Plese check the STR Id entered","status":400})
                                 else:
-                                    file_status.append({'file_name':fname,"message":"Plese check the STR Id entered","status":400})          
+                                    file_status.append({'file_name':fname,"message":"given STR ID is already mapped with another Corporation","status":400})                     
                             else:
                                 file_status.append({'file_name':fname,"message":"Profit centre already mapped with another STR ID","status":400})       
 
                         else:
                             file_status.append({'file_name':fname,'message':'file already exist please check', 'status':500})
+                    else:
+                        file_status.append({'file_name':fname,'message':'error in uploading to s3 bucket', 'status':500})
                 else:
                     file_status.append({'file_name':fname,'message':'Invalid file format. Allowed formats are .xlsx, .xls only', 'status':500})
             except Exception as ex:
