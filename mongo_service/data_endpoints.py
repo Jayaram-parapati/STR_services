@@ -1379,7 +1379,7 @@ class APIendpoints(connect_to_MongoDb):
                             "timestamp": {
                                 "$dateFromParts": {"isoWeekYear": "$_id.year","isoWeek": "$_id.week","isoDayOfWeek": 0}
                             },
-                            "metadata.label": "$_id.label",
+                            "label": "$_id.label",
                             "change":{
                                 "$cond":{
                                     "if":{"$ne":["$_id.label","Your rank"]},
@@ -1390,10 +1390,10 @@ class APIendpoints(connect_to_MongoDb):
                                     "if":{"$ne":["$_id.label","Your rank"]},
                                     "then":"$avg_change_rate",
                                     "else":{"$concat":[{"$toString":{"$round":"$avg_change_rate"}}," of ",{"$toString":{"$round":"$denominator"}}]}}},
-                            "week_range": [
-                                            {"$dateToString": {"date": {"$dateFromParts": {"isoWeekYear": "$_id.year","isoWeek": "$_id.week","isoDayOfWeek": 0}}}},
-                                            {"$dateToString": {"date": {"$dateFromParts": {"isoWeekYear": "$_id.year","isoWeek": "$_id.week","isoDayOfWeek": 6}}}},  
-                                        ] 
+                            # "week_range": [
+                            #                 {"$dateToString": {"date": {"$dateFromParts": {"isoWeekYear": "$_id.year","isoWeek": "$_id.week","isoDayOfWeek": 0}}}},
+                            #                 {"$dateToString": {"date": {"$dateFromParts": {"isoWeekYear": "$_id.year","isoWeek": "$_id.week","isoDayOfWeek": 6}}}},  
+                            #             ] 
                         }
                         pipeline[4]["$project"].update(projectstage_query)
                         pipeline.insert(5,{"$sort":{"timestamp":1}})
