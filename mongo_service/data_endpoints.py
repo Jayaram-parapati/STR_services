@@ -686,6 +686,9 @@ class APIendpoints(connect_to_MongoDb):
             collection = data.get("sheet",None)
             if collection:
                 coll_names = [collection+"_monthlyAvgs"]
+                
+            viewby = data.get("viewBy",None)
+              
             for collection_name in coll_names:
                 weekly_collection_name = collection_name.split('_')[0]
                 
@@ -720,6 +723,24 @@ class APIendpoints(connect_to_MongoDb):
                                             }
                                         }
                                     }}},
+                            "avg_change_rate":{
+                                "$avg":{
+                                    "$cond": {
+                                        "if": { "$ne": ["$metadata.label", "Your rank"] },
+                                        "then":{
+                                            "$cond":{
+                                                "if": { "$eq": ["$change_rate", "null"] },
+                                                "then": 0,
+                                                "else": { "$toDouble": "$change_rate" }
+                                                }},
+                                        "else": {
+                                            "$cond": {
+                                                "if": { "$eq": [{ "$arrayElemAt": [{ "$split": ["$change_rate", " of "] }, 0] }, "null"] },
+                                                "then": 0,
+                                                "else": { "$toInt": { "$arrayElemAt": [{ "$split": ["$change_rate", " of "] }, 0] } }
+                                            }
+                                        }
+                                    }}},
                             "denominator":{
                                 "$avg":{
                                     "$cond":{
@@ -748,7 +769,12 @@ class APIendpoints(connect_to_MongoDb):
                             "$cond":{
                                 "if":{"$ne":["$_id.label","Your rank"]},
                                 "then":"$avg_change",
-                                "else":{"$concat":[{"$toString":{"$round":"$avg_change"}}," of ",{"$toString":{"$round":"$denominator"}}]}}}
+                                "else":{"$concat":[{"$toString":{"$round":"$avg_change"}}," of ",{"$toString":{"$round":"$denominator"}}]}}},
+                        "change_rate":{
+                            "$cond":{
+                                "if":{"$ne":["$_id.label","Your rank"]},
+                                "then":"$avg_change_rate",
+                                "else":{"$concat":[{"$toString":{"$round":"$avg_change_rate"}}," of ",{"$toString":{"$round":"$denominator"}}]}}}
                      }   
                     },
                 ]
@@ -768,10 +794,18 @@ class APIendpoints(connect_to_MongoDb):
                         "coll":weekly_collection_name,
                         "pipeline": weekly_pipeline
                     }}, 
-                    {"$group":{"_id":{"timestamp":"$timestamp","label":"$metadata.label"},"unique_change":{"$first":"$change"}}},
-                    {"$project": {"_id": 0,"timestamp": "$_id.timestamp","label":"$_id.label","change": "$unique_change"}},
+                    {"$group":{"_id":{"timestamp":"$timestamp","label":"$metadata.label"},"unique_change":{"$first":"$change"},"unique_change_rate":{"$first":"$change_rate"}}},
+                    {"$project": {"_id": 0,"timestamp": "$_id.timestamp","label":"$_id.label","change": "$unique_change","change_rate": "$unique_change_rate"}},
                     {"$sort":{"timestamp":1}}
                 ]
+                
+                if viewby is None:
+                    weekly_pipeline[1]["$group"].pop("avg_change_rate")
+                    weekly_pipeline[2]["$project"].pop("change_rate")
+                    pipeline[4]["$group"].pop("unique_change_rate")
+                    pipeline[5]["$project"].pop("change_rate")
+                    
+                
                 if collection:
                     res = {}
                     res.update(response_data)
