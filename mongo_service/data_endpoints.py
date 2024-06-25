@@ -2251,7 +2251,7 @@ class APIendpoints(connect_to_MongoDb):
             result = {
                 "status_code":400
             }
-            res = self.db.Monthly_uploads.find_one({"corporation_id":corp_id},{"_id":0,"extraction_report_id":0})
+            res = self.db.Monthly_uploads.find_one({"corporation_id":corp_id,"delete_status":0},{"_id":0,"extraction_report_id":0})
             if res:
                 corp_name = res["corporation_name"]
                 result.update({
@@ -2269,12 +2269,75 @@ class APIendpoints(connect_to_MongoDb):
             }
             return result
         
-   
-        
+    def fillMissingReportData(self,data,startDate,endDate,type):
+        try:
+            all_dates = []
+            current_date = startDate
+            last_date = endDate
+            
+            if type == "Week":
+                if current_date.isoweekday() != 7:
+                    current_date -=timedelta(days=current_date.isoweekday())
+                if endDate.isoweekday() != 6:
+                    endDate +=timedelta(days=(6-endDate.isoweekday()))
+                    
+            if type == "Month":
+                current_date = datetime.strptime(f"{current_date.year} {current_date.month} 01","%Y %m %d")
+                max_days = calendar.monthrange(last_date.year,last_date.month)[1]
+                last_date = datetime.strptime(f"{last_date.year} {last_date.month} {max_days}","%Y %m %d")
+                        
+            
+            while current_date <= last_date:
+                all_dates.append(current_date)
+                if type == "Day":
+                    current_date += timedelta(days=1)
+                if type == "Week":
+                    current_date += timedelta(days=7)
+                if type == "Month":
+                    if current_date.month == 12:
+                        current_date = current_date.replace(year=current_date.year + 1, month=1, day=1)
+                    else:
+                        current_date = current_date.replace(month=current_date.month + 1, day=1)
+            
+            sheets = ["adr","occupancy","revpar"]
+            index_dict = {
+                "adr":"Index (ARI)",
+                "occupancy":"Index (MPI)",
+                "revpar":"Index (RGI)"
+            }
+            for sheet in sheets:
+                sheet_dict = data[sheet]
+                dicttt = {(res["timestamp"],res["label"]):res for res in sheet_dict}
+                sheet_result = []
+                labels = ["My Property","Comp Set","Your rank"]
+                labels.append(index_dict[sheet])
+                for date in all_dates:
+                    for label in labels:
+                        if (date,label) in dicttt:
+                            sheet_result.append(dicttt[(date,label)])
+                        else:
+                            sheet_result.append({
+                                "timestamp":date,
+                                "label":label,
+                                "change":None,
+                                "change_rate":None
+                            })
+                data[sheet] = (sheet_result)
+            return data    
+    
+        except Exception as e:
+            result = {
+                "status_code":500,
+                "detail":"No detail found",
+                "error":str(e)
+            }
+            return result
+      
     def get_report_data(self,data):
         try:
             corp_id = data["corporation_id"]
             pc_id = data.get("profit_center_id",None)
+            viewby = data.get("viewBy",None)
             
             start_query_date = data["startdate"]
             start_ts_obj = datetime.strptime(start_query_date,"%Y-%m-%d")
@@ -2286,22 +2349,42 @@ class APIendpoints(connect_to_MongoDb):
             if start_ts_obj >= today or end_ts_obj >= today:
                 raise HTTPException(status_code=400,detail="searching dates are invalid")
             
+            
             dates_difference = end_ts_obj - start_ts_obj
             difference_days = dates_difference.days
             max_days = calendar.monthrange(start_ts_obj.year,start_ts_obj.month)[1]
-            
-            viewby = data.get("viewBy",None)
-            
+
             if viewby=='Day' or viewby=='Week':
                 result = self.new_get_range_data(data)
-                return result
+                response = self.fillMissingReportData(result,start_ts_obj,end_ts_obj,viewby)
+                return response
             
             if viewby=='Month':
                 data["start_obj_from_report"]=start_ts_obj 
                 data["end_obj_from_report"]=end_ts_obj
                 data["year"]=start_ts_obj.year 
                 result = self.new_get_monthly_data(data)
-                return result
+                response = self.fillMissingReportData(result,start_ts_obj,end_ts_obj,viewby)
+                return response
     
-        except Exception as e:
-            pass
+        except HTTPException as err:
+            result = {
+                "status_code":400
+            }
+            res = self.db.Monthly_uploads.find_one({"corporation_id":corp_id,"delete_status":0},{"_id":0,"extraction_report_id":0})
+            if res:
+                corp_name = res["corporation_name"]
+                result.update({
+                    "corporation_name":corp_name,
+                    "detail": f"No data found for {corp_name}",
+                })
+            else:
+                result.update({"detail":"No data found"})    
+            return result
+        except Exception as err:
+            result = {
+                "status_code":500,
+                "detail":"No detail found",
+                "error":str(err)
+            }
+            return result
