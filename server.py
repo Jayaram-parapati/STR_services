@@ -184,7 +184,7 @@ def week_data(data:WeekData):
 def weekly_data(data:WeeklyData):
     try:
         data_dict = data.model_dump()
-        result = api.get_weekly_data(data_dict)
+        result = api.new_get_weekly_data(data_dict)
         return result
     except HTTPException as e:
         raise e  

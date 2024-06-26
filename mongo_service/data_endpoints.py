@@ -244,37 +244,63 @@ class APIendpoints(connect_to_MongoDb):
             end_ts_obj = datetime.strptime(end_query_date,"%Y-%m-%d")
             
             today = datetime.today()
-            if start_ts_obj >= today or end_ts_obj >= today:
+            if start_ts_obj >= today:
                 raise HTTPException(status_code=400,
                                     detail="searching dates are invalid")
-                
+            
+            all_dates = []
+            current_date = start_ts_obj
+            while current_date <= end_ts_obj:
+                all_dates.append(current_date)
+                current_date += timedelta(days=1)    
+            
+            start_ts_obj_for_search = datetime.strptime(f"{start_ts_obj.year} {start_ts_obj.month} 01","%Y %m %d") 
+            max_days = calendar.monthrange(end_ts_obj.year,end_ts_obj.month)[1]
+            end_ts_obj_for_search = datetime.strptime(f"{end_ts_obj.year} {end_ts_obj.month} {max_days}","%Y %m %d")    
+            
             obj_id_query = {
                 "corporation_id":corp_id,
-                "date_range":{"$elemMatch": {"$gte": start_ts_obj,"$lte": end_ts_obj}},
+                "date_range":{"$elemMatch": {"$gte": start_ts_obj_for_search,"$lte": end_ts_obj_for_search}},
                 "delete_status":0,
             }
             if pc_id:
                 obj_id_query.update({"profit_center_id":pc_id})
-            documents = list(self.db.Weekly_uploads.find(obj_id_query))
-            monthly_docs = []
-            if len(documents) == 0:
                 
-                max_days = calendar.monthrange(start_ts_obj.year,start_ts_obj.month)[1]
-                temp_start_query_date = f"{start_ts_obj.year} {start_ts_obj.month} 01"
-                temp_start_ts_obj = datetime.strptime(temp_start_query_date,"%Y %m %d")
-                temp_end_query_date = f"{start_ts_obj.year} {start_ts_obj.month} {max_days}"
-                temp_end_ts_obj = datetime.strptime(temp_end_query_date,"%Y %m %d")
-                
-                obj_id_query["date_range"]["$elemMatch"]["$gte"]=temp_start_ts_obj
-                obj_id_query["date_range"]["$elemMatch"]["$lte"]=temp_end_ts_obj
-
-                monthly_docs = list(self.db.Monthly_uploads.find(obj_id_query))
-                if len(monthly_docs) == 0:
-                    raise HTTPException(status_code=400,
+            weekly_documents = list(self.db.Weekly_uploads.find(obj_id_query))
+            monthly_documents = list(self.db.Monthly_uploads.find(obj_id_query))    
+            
+            weekly_str_id_objIds = [doc["extraction_report_id"] for doc in weekly_documents]
+            monthly_str_id_objIds = [doc["extraction_report_id"] for doc in monthly_documents]
+            
+            if len(weekly_documents)==0 and len(monthly_documents)==0:
+                raise HTTPException(status_code=400,
                                     detail=f"No data found for {corp_id} between {start_query_date} and {end_query_date}")
-                monthly_str_id_objIds = [doc["extraction_report_id"] for doc in monthly_docs]
+            if len(weekly_documents) != 0:
+                corp_details_obj = weekly_documents[0]
+            else:corp_details_obj = monthly_documents[0]
+            
+            response_data = {"corporation_name":corp_details_obj["corporation_name"],
+                            "corporation_id":corp_details_obj["corporation_id"],
+                            "profitcenter_id":corp_details_obj.get("profit_center_id",None),
+                            "profitcenter_name":corp_details_obj.get("profit_center_name",None),
+                            "str_id":corp_details_obj["str_id"],
+                            }
+         
+            result ={}
+            response_data.update({"status_code":200,"detail":"Data retrieved successfully"})
+            result.update(response_data)
+            coll_names = ["adr","occupancy","revpar"]
+            collection = data.get("sheet",None)
+            if collection:
+                coll_names = [collection]
+            for collection_name in coll_names:
+                matched_objs_query = {"timestamp":{"$in":all_dates},"metadata.str_id": {"$in": weekly_str_id_objIds},"tag_type":{"$eq":"Current Week"}}
+                matched_objs = list(self.db[collection_name].find(matched_objs_query))
+                found_dates = [obj["timestamp"] for obj in matched_objs]
+                missing_dates_from_weekly = [date for date in all_dates if not date in found_dates]
+                matched_ids = [obj['_id'] for obj in matched_objs]
                 monthly_pipeline = [
-                    {"$match":{"metadata.str_id":{"$in":monthly_str_id_objIds},"timestamp":{"$gte":start_ts_obj,"$lte":end_ts_obj}}},
+                    {"$match":{"metadata.str_id":{"$in":monthly_str_id_objIds},"timestamp":{"$in":missing_dates_from_weekly}}},
                     {
                         "$group": {
                             "_id": {
@@ -289,65 +315,55 @@ class APIendpoints(connect_to_MongoDb):
                         "$project": {
                             "_id": 0,
                             "timestamp": {
-                                "$dateFromParts": {"isoWeekYear": "$_id.year","isoWeek": "$_id.week","isoDayOfWeek": 0}
+                                "$dateFromParts": {"isoWeekYear": "$_id.year","isoWeek": "$_id.week","isoDayOfWeek": 6}
                             },
                             "metadata.label": "$_id.label",
                             "change": "$avg_change",
                             "week_range": [
-                                            {"$dateToString": {"date": {"$dateFromParts": {"isoWeekYear": "$_id.year","isoWeek": "$_id.week","isoDayOfWeek": 0}}}},
-                                            {"$dateToString": {"date": {"$dateFromParts": {"isoWeekYear": "$_id.year","isoWeek": "$_id.week","isoDayOfWeek": 6}}}},  
+                                            {"$dateFromParts": {"isoWeekYear": "$_id.year","isoWeek": "$_id.week","isoDayOfWeek": 0}},
+                                            {"$dateFromParts": {"isoWeekYear": "$_id.year","isoWeek": "$_id.week","isoDayOfWeek": 6}},  
                                         ]  
                         }
                     },
                     {"$sort": {"timestamp": 1}},
                 ]
-                response_data = {"corporation_name":monthly_docs[0]["corporation_name"],
-                                "corporation_id":monthly_docs[0]["corporation_id"],
-                                "profitcenter_id":monthly_docs[0].get("profit_center_id",None),
-                                "profitcenter_name":monthly_docs[0].get("profit_center_name",None),
-                                "str_id":monthly_docs[0]["str_id"],
-                                }
-    
-            str_id_objIds = [doc["extraction_report_id"] for doc in documents]
-            
-            pipeline=[
-                {"$match":{"timestamp":{"$gte":start_ts_obj,"$lte":end_ts_obj},"metadata.str_id": {"$in": str_id_objIds},"tag_type":{"$eq":"Current Week"}}},
-                {"$project":{"_id":0,"metadata.str_id":0,"change_rate":0}}
-            ]
-            if documents:
-                response_data = {"corporation_name":documents[0]["corporation_name"],
-                                "corporation_id":documents[0]["corporation_id"],
-                                "profitcenter_id":documents[0].get("profit_center_id",None),
-                                "profitcenter_name":documents[0].get("profit_center_name",None),
-                                "str_id":documents[0]["str_id"],
-                                }
-            
-            collection = data.get("sheet",None)
-            if collection:
-                res = {}
-                res.update(response_data)
-                collectionName_allCorp = collection
-                pipeline_to_aggregate_allCorp = pipeline
-                if monthly_docs:
-                    collectionName_allCorp = collection+"_DailyByMonth"
-                    pipeline_to_aggregate_allCorp = monthly_pipeline
-                res.update({
-                            "sheet":collection,
-                            "data":list(self.db[collectionName_allCorp].aggregate(pipeline_to_aggregate_allCorp))
-                            })
-                return res
-            
-            result ={}
-            response_data.update({"status_code":200,"detail":"Data retrieved successfully"})
-            result.update(response_data)
-            coll_names = ["adr","occupancy","revpar"]
-            for collection_name in coll_names:
-                collectionName = collection_name
-                pipeline_to_aggregate = pipeline
-                if monthly_docs:
-                    collectionName = collection_name+"_DailyByMonth"
-                    pipeline_to_aggregate = monthly_pipeline
-                result.update({collection_name:list(self.db[collectionName].aggregate(pipeline_to_aggregate))})
+                pipeline = [
+                    {"$match": {"_id": {"$in": matched_ids}}},
+                    {"$project":{"_id":0,"change_rate":0,"metadata.str_id":0,"tag_type":0}},
+                    {"$unionWith":{
+                        "coll":collection_name+'_DailyByMonth',
+                        "pipeline":monthly_pipeline
+                    }},
+                    {"$set":{"metadata.label":{"$cond":{
+                        "if": { "$eq": ["$metadata.label", "Competitive Set"] },
+                        "then": "Comp Set",
+                        "else": "$metadata.label"
+                    }}}},
+                    {"$group":{
+                        "_id":{"timestamp":"$timestamp","label":"$metadata.label"},
+                        "change":{"$first":"$change"},
+                        "week_range":{"$first":"$week_range"}
+                    }},
+                    {"$project":{
+                        "_id":0,
+                        "timestamp":"$_id.timestamp",
+                        "metadata.label":"$_id.label",
+                        "change":"$change",
+                        "week_range":"$week_range"
+                    }},
+                    {"$sort":{"timestamp":1}} 
+                ]
+                
+                if collection:
+                    res = {}
+                    res.update(response_data)
+                    res.update({
+                                "sheet":collection,
+                                "data":list(self.db[collection_name].aggregate(pipeline))
+                                })
+                    return res
+                
+                result.update({collection_name:list(self.db[collection_name].aggregate(pipeline))})
             # print(result)
             return result
          
@@ -1711,18 +1727,8 @@ class APIendpoints(connect_to_MongoDb):
                     corp_data.update({"corporation_id":corp})
                     multipc_match_query = {"corporation_id":corp,"delete_status":0,"date_range":{"$elemMatch": {"$gte": start_ts_obj,"$lte": end_ts_obj}}}
                     multi_pc_data = list(self.db.Weekly_uploads.find(multipc_match_query,{"_id":0,"extraction_report_id":0}))
-                    if len(multi_pc_data) == 0:
-                        max_days = calendar.monthrange(start_ts_obj.year,start_ts_obj.month)[1]
-                        temp_start_query_date = f"{start_ts_obj.year} {start_ts_obj.month} 01"
-                        temp_start_ts_obj = datetime.strptime(temp_start_query_date,"%Y %m %d")
-                        temp_end_query_date = f"{start_ts_obj.year} {start_ts_obj.month} {max_days}"
-                        temp_end_ts_obj = datetime.strptime(temp_end_query_date,"%Y %m %d")
-                        
-                        multipc_match_query["date_range"]["$elemMatch"]["$gte"]=temp_start_ts_obj
-                        multipc_match_query["date_range"]["$elemMatch"]["$lte"]=temp_end_ts_obj
-                        multi_pc_data = list(self.db.Monthly_uploads.find(multipc_match_query,{"_id":0,"extraction_report_id":0}))
-                        
-                    
+                    multi_pc_data.extend(self.db.Monthly_uploads.find(multipc_match_query,{"_id":0,"extraction_report_id":0}))
+          
                     if len(multi_pc_data) != 0:
                         pc_set = set()
                         for obj in multi_pc_data:
@@ -1730,7 +1736,7 @@ class APIendpoints(connect_to_MongoDb):
                             pc_set.add(pc_id)
                         for pc_id in pc_set:
                             corp_data.update({"profit_center_id":pc_id})
-                            corp_res = self.get_weekly_data(corp_data)
+                            corp_res = self.new_get_weekly_data(corp_data)
                             data_list = corp_res.get("data",None)
                             if data_list:
                                 all_corp_res.append(corp_res)
