@@ -714,6 +714,10 @@ class APIendpoints(connect_to_MongoDb):
                 matched_ids = [obj['_id'] for obj in matched_objs]
                 weekly_pipeline = [
                     {"$match":{"timestamp":{"$in": missing_dates_from_monthly},"metadata.str_id": {"$in": weekly_str_id_objIds},"tag_type":{"$eq":"Current Week"}}},
+                    {"$unionWith": {
+                                                "coll": weekly_collection_name + "_ss",
+                                                "pipeline": [{"$match":{"timestamp":{"$in":missing_dates_from_monthly},"metadata.str_id": {"$in": weekly_str_id_objIds},"tag_type":{"$eq":"Current Week"},"metadata.label":{"$ne":"Index"}}}]
+                                            }},
                     {
                         "$group": {
                             "_id": {
@@ -816,6 +820,7 @@ class APIendpoints(connect_to_MongoDb):
                 ]
                 
                 if viewby is None:
+                    weekly_pipeline.pop(1)
                     weekly_pipeline[1]["$group"].pop("avg_change_rate")
                     weekly_pipeline[2]["$project"].pop("change_rate")
                     pipeline[4]["$group"].pop("unique_change_rate")
@@ -1359,12 +1364,22 @@ class APIendpoints(connect_to_MongoDb):
               
                 if viewby:
                     if viewby == 'Day':
+                        marketscale_stage = {"$unionWith": {
+                                                "coll": collection_name + "_ss",
+                                                "pipeline": [{"$match":{"timestamp":{"$in":all_dates},"metadata.str_id": {"$in": weekly_str_id_objIds},"tag_type":{"$exists":False},"metadata.label":{"$ne":"Index"}}}]
+                                            }}
+                        pipeline.insert(1,marketscale_stage)
                         groupstage_query ={"_id":{"timestamp":"$timestamp","label":"$metadata.label"},"change":{"$first":"$change"},"change_rate":{"$first":"$change_rate"}}
-                        pipeline[3]["$group"].update(groupstage_query)
+                        pipeline[4]["$group"].update(groupstage_query)
                         projectstage_query ={"_id":0,"timestamp":"$_id.timestamp","label":"$_id.label","change":"$change","change_rate":"$change_rate"}
-                        pipeline[4]["$project"].update(projectstage_query)
-                        pipeline.insert(5,{"$sort":{"timestamp":1}})
+                        pipeline[5]["$project"].update(projectstage_query)
+                        pipeline.insert(6,{"$sort":{"timestamp":1}})
                     if viewby == 'Week':
+                        marketscale_stage = {"$unionWith": {
+                                                "coll": collection_name + "_ss",
+                                                "pipeline": [{"$match":{"timestamp":{"$in":all_dates},"metadata.str_id": {"$in": weekly_str_id_objIds},"tag_type":{"$exists":False},"metadata.label":{"$ne":"Index"}}}]
+                                            }}
+                        pipeline.insert(1,marketscale_stage)
                         groupstage_query ={
                             "_id": {
                                 "year": {"$year": "$timestamp"},
@@ -1423,7 +1438,7 @@ class APIendpoints(connect_to_MongoDb):
                                 }
                             }
                         }
-                        pipeline[3]["$group"].update(groupstage_query)
+                        pipeline[4]["$group"].update(groupstage_query)
                         projectstage_query ={
                             "_id": 0,
                             "timestamp": {
@@ -1445,8 +1460,8 @@ class APIendpoints(connect_to_MongoDb):
                             #                 {"$dateToString": {"date": {"$dateFromParts": {"isoWeekYear": "$_id.year","isoWeek": "$_id.week","isoDayOfWeek": 6}}}},  
                             #             ] 
                         }
-                        pipeline[4]["$project"].update(projectstage_query)
-                        pipeline.insert(5,{"$sort":{"timestamp":1}})
+                        pipeline[5]["$project"].update(projectstage_query)
+                        pipeline.insert(6,{"$sort":{"timestamp":1}})
                     
                 result.update({collection_name:list(self.db[collection_name].aggregate(pipeline))})
             return result
@@ -2311,12 +2326,18 @@ class APIendpoints(connect_to_MongoDb):
                 "occupancy":"Index (MPI)",
                 "revpar":"Index (RGI)"
             }
+            marketscale_dict = {
+                "adr":"ADR",
+                "occupancy":"Occ",
+                "revpar":"RevPAR"
+            }
             for sheet in sheets:
                 sheet_dict = data[sheet]
                 dicttt = {(res["timestamp"],res["label"]):res for res in sheet_dict}
                 sheet_result = []
                 labels = ["My Property","Comp Set","Your rank"]
                 labels.append(index_dict[sheet])
+                labels.append(marketscale_dict[sheet])
                 for date in all_dates:
                     for label in labels:
                         if (date,label) in dicttt:
