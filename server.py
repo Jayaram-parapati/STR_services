@@ -115,7 +115,7 @@ def upload_file(
                             
                                 str_match = db["Weekly_uploads"].find_one({"str_id":str_id})
                                 if str_match is None:
-                                    str_match = db["Weekly_uploads"].find_one({"str_id":str_id})
+                                    str_match = db["Monthly_uploads"].find_one({"str_id":str_id})
                                 if str_match:
                                     str_match_pcId = str_match.get("profit_center_id",None)
                                 
