@@ -2117,7 +2117,7 @@ class APIendpoints(connect_to_MongoDb):
             result = {
                 "status_code":400
             }
-            res = self.db.Monthly_uploads.find_one({"corporation_id":corp_id},{"_id":0,"extraction_report_id":0})
+            res = self.db.Monthly_uploads.find_one({"corporation_id":corp_id,"delete_status":0},{"_id":0,"extraction_report_id":0})
             if res:
                 corp_name = res["corporation_name"]
                 result.update({
