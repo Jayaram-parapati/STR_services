@@ -2081,9 +2081,9 @@ class APIendpoints(connect_to_MongoDb):
             ]
             
             documents = list(self.db.Weekly_uploads.find(obj_id_query))
-            if len(documents) == 0:
-                raise HTTPException(status_code=400,
-                                    detail=f"No data found for {corp_id} between {start_query_date} and {end_query_date}")
+            # if len(documents) == 0:
+            #     raise HTTPException(status_code=400,
+            #                         detail=f"No data found for {corp_id} between {start_query_date} and {end_query_date}")
             str_id_objIds = [doc["extraction_report_id"] for doc in documents]
             
             pipeline1 = [
