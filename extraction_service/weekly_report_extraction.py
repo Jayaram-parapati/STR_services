@@ -322,6 +322,8 @@ class Weekly_extraction(connect_to_MongoDb):
             
            
             for r in range(df_change.shape[0]):
+                saving_year = year
+                timestamp = ''
                 label_name =df_change.iloc[r,0]
                 if sub_label_name.startswith("Index") and label_name == "Comp Set":
                     label_name = labels_mapping[collection_name]
@@ -338,8 +340,11 @@ class Weekly_extraction(connect_to_MongoDb):
                         record['metadata']['label'] = "Your rank"
                         record.update({"change_rate":change})   
                     else:record.update({"change":change})
-                    if df_year_month.iloc[0, c] not in ["Current", "Run"]: 
-                        date = f"{year} { df_year_month.iloc[0,c]} {(df_year_month.iloc[1,c])}"
+                    if df_year_month.iloc[0, c] not in ["Current", "Run"]:
+                        if type(timestamp) == datetime:
+                            if timestamp.month == 12 and timestamp.day == 31:
+                                saving_year =  timestamp.year + 1  
+                        date = f"{saving_year} { df_year_month.iloc[0,c]} {(df_year_month.iloc[1,c])}"
                         timestamp = datetime.strptime(date.strip(),"%Y %b %d")
                         record.update({"timestamp":timestamp})
                     else:
