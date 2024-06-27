@@ -1374,7 +1374,7 @@ class APIendpoints(connect_to_MongoDb):
                         projectstage_query ={"_id":0,"timestamp":"$_id.timestamp","label":"$_id.label","change":"$change","change_rate":"$change_rate"}
                         pipeline[5]["$project"].update(projectstage_query)
                         pipeline.insert(6,{"$sort":{"timestamp":1}})
-                    if viewby == 'Week':
+                    if viewby == 'Week' or viewby == 'Year':
                         marketscale_stage = {"$unionWith": {
                                                 "coll": collection_name + "_ss",
                                                 "pipeline": [{"$match":{"timestamp":{"$in":all_dates},"metadata.str_id": {"$in": weekly_str_id_objIds},"tag_type":{"$exists":False},"metadata.label":{"$ne":"Index"}}}]
@@ -1462,7 +1462,11 @@ class APIendpoints(connect_to_MongoDb):
                         }
                         pipeline[5]["$project"].update(projectstage_query)
                         pipeline.insert(6,{"$sort":{"timestamp":1}})
-                    
+                        
+                        if viewby == 'Year':
+                            pipeline[4]["$group"]["_id"].pop("week")
+                            pipeline[5]["$project"]["timestamp"].update({"$dateFromParts":{"year": "$_id.year","month":1,"day":1}})
+              
                 result.update({collection_name:list(self.db[collection_name].aggregate(pipeline))})
             return result
          
@@ -2311,8 +2315,12 @@ class APIendpoints(connect_to_MongoDb):
                 current_date = datetime.strptime(f"{current_date.year} {current_date.month} 01","%Y %m %d")
                 max_days = calendar.monthrange(last_date.year,last_date.month)[1]
                 last_date = datetime.strptime(f"{last_date.year} {last_date.month} {max_days}","%Y %m %d")
-                        
             
+            if type == "Year":
+                current_date = datetime.strptime(f"{current_date.year} 01 01","%Y %m %d")
+                max_days = calendar.monthrange(last_date.year,last_date.month)[1]
+                last_date = datetime.strptime(f"{last_date.year} 01 01","%Y %m %d")
+           
             while current_date <= last_date:
                 all_dates.append(current_date)
                 if type == "Day":
@@ -2324,7 +2332,9 @@ class APIendpoints(connect_to_MongoDb):
                         current_date = current_date.replace(year=current_date.year + 1, month=1, day=1)
                     else:
                         current_date = current_date.replace(month=current_date.month + 1, day=1)
-            
+                if type == "Year":
+                    current_date = current_date.replace(year=current_date.year + 1, month=1, day=1)
+                  
             sheets = ["adr","occupancy","revpar"]
             index_dict = {
                 "adr":"Index (ARI)",
@@ -2398,6 +2408,15 @@ class APIendpoints(connect_to_MongoDb):
                 result = self.new_get_monthly_data(data)
                 response = self.fillMissingReportData(result,start_ts_obj,end_ts_obj,viewby)
                 return response
+            
+            if viewby=='Year':
+                data["start_obj_from_report"]=start_ts_obj 
+                data["end_obj_from_report"]=end_ts_obj
+                data["years_selected"]=2 
+                result = self.new_get_range_data(data)
+                response = self.fillMissingReportData(result,start_ts_obj,end_ts_obj,viewby)
+                return response
+                
     
         except HTTPException as err:
             result = {
@@ -2420,3 +2439,6 @@ class APIendpoints(connect_to_MongoDb):
                 "error":str(err)
             }
             return result
+        
+    def widget_glance(self,data):
+        pass    
