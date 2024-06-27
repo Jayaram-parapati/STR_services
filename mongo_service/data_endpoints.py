@@ -1736,13 +1736,18 @@ class APIendpoints(connect_to_MongoDb):
             end_query_date = data["week_end_date"]
             end_ts_obj = datetime.strptime(end_query_date,"%Y-%m-%d")
             
+            start_ts_obj_for_search = datetime.strptime(f"{start_ts_obj.year} {start_ts_obj.month} 01","%Y %m %d") 
+            max_days = calendar.monthrange(end_ts_obj.year,end_ts_obj.month)[1]
+            end_ts_obj_for_search = datetime.strptime(f"{end_ts_obj.year} {end_ts_obj.month} {max_days}","%Y %m %d")
+            
             corporations = data["corporations"]
             for corp in corporations:
                 try:
                     corp_data.update({"corporation_id":corp})
                     multipc_match_query = {"corporation_id":corp,"delete_status":0,"date_range":{"$elemMatch": {"$gte": start_ts_obj,"$lte": end_ts_obj}}}
+                    multipc_match_query_for_month = {"corporation_id":corp,"delete_status":0,"date_range":{"$elemMatch": {"$gte": start_ts_obj_for_search,"$lte": end_ts_obj_for_search}}}
                     multi_pc_data = list(self.db.Weekly_uploads.find(multipc_match_query,{"_id":0,"extraction_report_id":0}))
-                    multi_pc_data.extend(self.db.Monthly_uploads.find(multipc_match_query,{"_id":0,"extraction_report_id":0}))
+                    multi_pc_data.extend(self.db.Monthly_uploads.find(multipc_match_query_for_month,{"_id":0,"extraction_report_id":0}))
           
                     if len(multi_pc_data) != 0:
                         pc_set = set()
