@@ -498,22 +498,9 @@ class Weekly_extraction(connect_to_MongoDb):
                 # timeseries={"timeField": "timestamp", "metaField": "metadata"},
             )
         if config["save_to_db"] == True:
-            q={
-               "str_id":strinfo["str_id"],
-            #    "str_property":strinfo["str_property"],
-                "str_date_range": 
-                    {"$elemMatch": {"$eq": drange[0],"$eq": drange[1]}} 
-            }
-            check_strid = self.db[collection_name].find_one(q)
-            if check_strid:
-                return check_strid["_id"]
-            else:
-                result = self.db[collection_name].insert_one(strinfo)
-                return result.inserted_id
-        # print(strinfo)
-        # print(df)
-
-
+            result = self.db[collection_name].insert_one(strinfo)
+            return result.inserted_id
+  
     def prepare_all_dfs(self,sheets,xl):
         
         dfs = self.prepare_dfs(sheets,xl)

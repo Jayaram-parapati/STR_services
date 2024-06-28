@@ -315,14 +315,9 @@ class Monthly_extraction(connect_to_MongoDb):
                 # timeseries={"timeField": "timestamp", "metaField": "metadata"},
             )
         if config["save_to_db"] == True:
-            check_strid = self.db[collection_name].find_one({"str_id":strinfo["str_id"],"str_date_range":{"$eq": drange}})
-            if check_strid:
-                return check_strid["_id"]
-            else:
-                result = self.db[collection_name].insert_one(strinfo)
-                return result.inserted_id
-        # print(strinfo)
-        # print(df)
+            result = self.db[collection_name].insert_one(strinfo)
+            return result.inserted_id
+        
 
 
     def prepare_all_dfs_monthly(self,sheets,xl):
