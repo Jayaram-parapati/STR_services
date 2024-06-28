@@ -1300,6 +1300,13 @@ class APIendpoints(connect_to_MongoDb):
             }
             if pc_id:
                 obj_id_query.update({"profit_center_id":pc_id})
+            widget = data.get("widget",None)
+            if widget:
+                pc_list = data.get("profit_centers",[])
+                if len(pc_list) != 0:
+                    obj_id_query.update({"profit_center_id":{"$in":pc_list}})
+                    
+                
             weekly_documents = list(self.db.Weekly_uploads.find(obj_id_query))
             monthly_documents = list(self.db.Monthly_uploads.find(obj_id_query))
             
@@ -1330,7 +1337,7 @@ class APIendpoints(connect_to_MongoDb):
             for collection_name in coll_names:
                 matched_objs_query = {"timestamp":{"$in":all_dates},"metadata.str_id": {"$in": weekly_str_id_objIds},"tag_type":{"$exists":False},"metadata.label":{"$ne":"Your rank"}}
                 viewby = data.get("viewBy",None)
-                if viewby:
+                if viewby or widget:
                     matched_objs_query.pop("metadata.label")
                 matched_objs = list(self.db[collection_name].find(matched_objs_query))
                 found_dates = [obj["timestamp"] for obj in matched_objs]
@@ -1362,7 +1369,7 @@ class APIendpoints(connect_to_MongoDb):
                                 })
                     return res
               
-                if viewby:
+                if viewby or widget:
                     if viewby == 'Day':
                         marketscale_stage = {"$unionWith": {
                                                 "coll": collection_name + "_ss",
@@ -1374,7 +1381,7 @@ class APIendpoints(connect_to_MongoDb):
                         projectstage_query ={"_id":0,"timestamp":"$_id.timestamp","label":"$_id.label","change":"$change","change_rate":"$change_rate"}
                         pipeline[5]["$project"].update(projectstage_query)
                         pipeline.insert(6,{"$sort":{"timestamp":1}})
-                    if viewby == 'Week' or viewby == 'Year':
+                    if viewby == 'Week' or viewby == 'Year' or widget:
                         marketscale_stage = {"$unionWith": {
                                                 "coll": collection_name + "_ss",
                                                 "pipeline": [{"$match":{"timestamp":{"$in":all_dates},"metadata.str_id": {"$in": weekly_str_id_objIds},"tag_type":{"$exists":False},"metadata.label":{"$ne":"Index"}}}]
@@ -1462,6 +1469,23 @@ class APIendpoints(connect_to_MongoDb):
                         }
                         pipeline[5]["$project"].update(projectstage_query)
                         pipeline.insert(6,{"$sort":{"timestamp":1}})
+                        
+                        if widget:
+                            pipeline.pop(1)
+                            pipeline[3]["$group"].update({"_id":"$metadata.label"})
+                            pipeline[3]["$group"].pop("avg_change_rate")
+                            pipeline[4]["$project"].pop("timestamp")
+                            pipeline[4]["$project"].pop("change_rate")
+                            project_query ={
+                                "_id":0,
+                                "label":"$_id",
+                                "change":{
+                                    "$cond":{
+                                        "if":{"$ne":["$_id","Your rank"]},
+                                        "then":"$avg_change",
+                                        "else":{"$concat":[{"$toString":{"$round":"$avg_change"}}," of ",{"$toString":{"$round":"$denominator"}}]}}},
+                            }
+                            pipeline[4]["$project"].update(project_query)
                         
                         if viewby == 'Year':
                             pipeline[4]["$group"]["_id"].pop("week")
@@ -2441,4 +2465,42 @@ class APIendpoints(connect_to_MongoDb):
             return result
         
     def widget_glance(self,data):
-        pass    
+        try:
+            corp_id = data["corporation_id"]
+            pc_ids_list = data.get("profit_centers",None)
+            
+            start_query_date = data["startdate"]
+            start_ts_obj = datetime.strptime(start_query_date,"%Y-%m-%d")
+            
+            end_query_date = data["enddate"]
+            end_ts_obj = datetime.strptime(end_query_date,"%Y-%m-%d")
+            
+            today = datetime.today()
+            if start_ts_obj >= today or end_ts_obj >= today:
+                raise HTTPException(status_code=400,detail="searching dates are invalid")
+            data.update({"widget":"widget"})
+            result = self.new_get_range_data(data)
+            return result
+            
+        except HTTPException as err:
+            result = {
+                "status_code":400
+            }
+            res = self.db.Monthly_uploads.find_one({"corporation_id":corp_id,"delete_status":0},{"_id":0,"extraction_report_id":0})
+            if res:
+                corp_name = res["corporation_name"]
+                result.update({
+                    "corporation_name":corp_name,
+                    "detail": f"No data found for {corp_name}",
+                })
+            else:
+                result.update({"detail":"No data found"})    
+            return result
+        except Exception as err:
+            result = {
+                "status_code":500,
+                "detail":"No detail found",
+                "error":str(err)
+            }
+            return result    
+        

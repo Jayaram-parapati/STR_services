@@ -462,6 +462,20 @@ def delete_upload(data:deletefile):
             "error":str(e)
         }
         return result
+
+@app.post('/widget_endpoint',tags=['Widget Data'])
+def widget_data(data:widget_basemodel):
+    try:
+        data_dict = data.model_dump()
+        result = api.widget_glance(data_dict)
+        return result
+    except Exception as e:
+        result={
+            "status_code":500,
+            "detail":"No detail found",
+            "error":str(e)
+        }
+     
        
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8000)

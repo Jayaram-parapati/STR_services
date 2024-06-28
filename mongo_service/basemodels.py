@@ -69,3 +69,9 @@ class deletefile(BaseModel):
     fileId:str = Field(...,example="66713b54e4c77ccb588bba9a")
     fileType:str = Field(...,example="Weekly")
     userId:str = Field(...,example="0xBD71F855F6CA738E47A9651817B9534C2000")
+    
+class widget_basemodel(BaseModel):
+    corporation_id:str = Field(...,example="0x0A3BF741342744B043FFAA6EE07AB7270000")
+    profit_centers:list = ["0x6D08EDC0DEC39B8249C6441B9CA0697D0001","0x6D08EDC0DEC39B8249C6441B9CA0697D0123"]
+    startdate: str = Field(...,example="2023-04-02")
+    enddate: str = Field(..., example="2023-04-08")    
