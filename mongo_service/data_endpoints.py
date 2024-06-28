@@ -54,8 +54,48 @@ class APIendpoints(connect_to_MongoDb):
                 weekly_str_id_objIds = [doc["extraction_report_id"] for doc in multi_pc_objs]
                 pipeline=[
                 {"$match":{"timestamp":{"$eq":end_ts_obj},"metadata.str_id":{"$in":weekly_str_id_objIds},"tag_type":{"$eq":"Current Week"} }},
-                {"$group":{"_id":"$metadata.label","change":{"$first":"$change"}}},
-                {"$project":{"_id":0,"label":"$_id","change":"$change"}}
+                {"$group":{"_id":"$metadata.label",
+                           "avg_change":{
+                                "$avg":{
+                                    "$cond": {
+                                        "if": { "$ne": ["$metadata.label", "Your rank"] },
+                                        "then":{
+                                            "$cond":{
+                                                "if": { "$eq": ["$change", "null"] },
+                                                "then": 0,
+                                                "else": { "$toDouble": "$change" }
+                                                }},
+                                        "else": {
+                                            "$cond": {
+                                                "if": { "$eq": [{ "$arrayElemAt": [{ "$split": ["$change", " of "] }, 0] }, "null"] },
+                                                "then": 0,
+                                                "else": { "$toInt": { "$arrayElemAt": [{ "$split": ["$change", " of "] }, 0] } }
+                                            }
+                                        }
+                                    }}},
+                            "denominator":{
+                                "$avg":{
+                                    "$cond":{
+                                        "if":{"$eq":["$metadata.label", "Your rank"]},
+                                        "then":{
+                                            "$cond":{
+                                                "if": { "$eq": [{ "$arrayElemAt": [{ "$split": ["$change", " of "] }, 1] }, "null"] },
+                                                "then": 0,
+                                                "else": { "$toInt": { "$arrayElemAt": [{ "$split": ["$change", " of "] }, 1] } }
+                                            }
+                                        },
+                                        "else":1
+                                    }
+                                }
+                            }
+                           }},
+                {"$project":{"_id":0,"label":"$_id",
+                             "change":{
+                                "$cond":{
+                                    "if":{"$ne":["$_id","Your rank"]},
+                                    "then":"$avg_change",
+                                    "else":{"$concat":[{"$toString":{"$round":"$avg_change"}}," of ",{"$toString":{"$round":"$denominator"}}]}}},
+                             }}
                 ]
                 obj = multi_pc_objs[0]
     
@@ -466,8 +506,58 @@ class APIendpoints(connect_to_MongoDb):
                 monthlyy_str_id_objIds = [doc["extraction_report_id"] for doc in multi_pc_objs]
                 pipeline=[
                 {"$match":{"timestamp":{"$eq":start_ts_obj},"metadata.str_id": {"$in":monthlyy_str_id_objIds},"tag_type":{"$exists":False}}},
-                {"$group":{"_id":"$metadata.label","change":{"$first":"$change"}}},
-                {"$project":{"_id":0,"label":"$_id","change":"$change"}}
+                {"$set":{"metadata.label":{"$cond":{
+                        "if": { "$eq": ["$metadata.label", "Competitive Set"] },
+                        "then": "Comp Set",
+                        "else": "$metadata.label"
+                }}}},
+                {"$set":{"metadata.label":{"$cond":{
+                    "if": { "$eq": ["$metadata.label", "Rank"] },
+                    "then": "Your rank",
+                    "else": "$metadata.label"
+                }}}},
+                {"$group":{"_id":"$metadata.label",
+                           "avg_change":{
+                                "$avg":{
+                                    "$cond": {
+                                        "if": { "$ne": ["$metadata.label", "Your rank"] },
+                                        "then":{
+                                            "$cond":{
+                                                "if": { "$eq": ["$change", "null"] },
+                                                "then": 0,
+                                                "else": { "$toDouble": "$change" }
+                                                }},
+                                        "else": {
+                                            "$cond": {
+                                                "if": { "$eq": [{ "$arrayElemAt": [{ "$split": ["$change", " of "] }, 0] }, "null"] },
+                                                "then": 0,
+                                                "else": { "$toInt": { "$arrayElemAt": [{ "$split": ["$change", " of "] }, 0] } }
+                                            }
+                                        }
+                                    }}},
+                            "denominator":{
+                                "$avg":{
+                                    "$cond":{
+                                        "if":{"$eq":["$metadata.label", "Your rank"]},
+                                        "then":{
+                                            "$cond":{
+                                                "if": { "$eq": [{ "$arrayElemAt": [{ "$split": ["$change", " of "] }, 1] }, "null"] },
+                                                "then": 0,
+                                                "else": { "$toInt": { "$arrayElemAt": [{ "$split": ["$change", " of "] }, 1] } }
+                                            }
+                                        },
+                                        "else":1
+                                    }
+                                }
+                            }
+                           }},
+                {"$project":{"_id":0,"label":"$_id",
+                             "change":{
+                             "$cond":{
+                                "if":{"$ne":["$_id","Your rank"]},
+                                "then":"$avg_change",
+                                "else":{"$concat":[{"$toString":{"$round":"$avg_change"}}," of ",{"$toString":{"$round":"$denominator"}}]}}},
+                            }}
                 ]
                 obj = multi_pc_objs[0]
             
