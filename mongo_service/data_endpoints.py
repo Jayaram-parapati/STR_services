@@ -44,6 +44,21 @@ class APIendpoints(connect_to_MongoDb):
                 {"$match":{"timestamp":{"$gte":start_ts_obj,"$lte":end_ts_obj},"metadata.str_id": ObjectId(str_id_objId)}},
                 {"$project":{"_id":0,"metadata.str_id":0,"change_rate":0}}
             ]
+            
+            widget = data.get("widget",None)
+            if widget:
+                pc_list = data.get("profit_centers",[])
+                if len(pc_list) != 0:
+                    obj_id_query.update({"profit_center_id":{"$in":pc_list}})
+                multi_pc_objs = list(self.db.Weekly_uploads.find(obj_id_query))
+                weekly_str_id_objIds = [doc["extraction_report_id"] for doc in multi_pc_objs]
+                pipeline=[
+                {"$match":{"timestamp":{"$eq":end_ts_obj},"metadata.str_id":{"$in":weekly_str_id_objIds},"tag_type":{"$eq":"Current Week"} }},
+                {"$group":{"_id":"$metadata.label","change":{"$first":"$change"}}},
+                {"$project":{"_id":0,"label":"$_id","change":"$change"}}
+                ]
+                obj = multi_pc_objs[0]
+    
             response_data = {"corporation_name":obj["corporation_name"],
                             "corporation_id":obj["corporation_id"],
                             "profitcenter_id":obj.get("profit_center_id",None),
@@ -441,6 +456,21 @@ class APIendpoints(connect_to_MongoDb):
                 {"$match":{"timestamp":{"$eq":start_ts_obj},"metadata.str_id": ObjectId(str_id_objId),"tag_type":{"$exists":True}}},
                 {"$project":{"_id":0,"metadata.str_id":0,"change_rate":0}}
             ]
+            
+            widget = data.get("widget",None)
+            if widget:
+                pc_list = data.get("profit_centers",[])
+                if len(pc_list) != 0:
+                    obj_id_query.update({"profit_center_id":{"$in":pc_list}})
+                multi_pc_objs = list(self.db.Monthly_uploads.find(obj_id_query))
+                monthlyy_str_id_objIds = [doc["extraction_report_id"] for doc in multi_pc_objs]
+                pipeline=[
+                {"$match":{"timestamp":{"$eq":start_ts_obj},"metadata.str_id": {"$in":monthlyy_str_id_objIds},"tag_type":{"$exists":False}}},
+                {"$group":{"_id":"$metadata.label","change":{"$first":"$change"}}},
+                {"$project":{"_id":0,"label":"$_id","change":"$change"}}
+                ]
+                obj = multi_pc_objs[0]
+            
             response_data = {"corporation_name":obj["corporation_name"],
                             "corporation_id":obj["corporation_id"],
                             "profitcenter_id":obj.get("profit_center_id",None),
@@ -467,6 +497,9 @@ class APIendpoints(connect_to_MongoDb):
             result.update(response_data)
             coll_names = ["adr_monthlyAvgs","occupancy_monthlyAvgs","revpar_monthlyAvgs"]
             for collection_name in coll_names:
+                if widget:
+                    result.update({collection_name.split('_')[0]:list(self.db[collection_name].aggregate(pipeline))})
+                    continue 
                 result.update({collection_name:list(self.db[collection_name].aggregate(pipeline))})
                 result.update({collection_name+"_glance":list(self.db[collection_name].aggregate(pipeline1))})
             # print(result)
@@ -2478,7 +2511,22 @@ class APIendpoints(connect_to_MongoDb):
             today = datetime.today()
             if start_ts_obj >= today or end_ts_obj >= today:
                 raise HTTPException(status_code=400,detail="searching dates are invalid")
+            
             data.update({"widget":"widget"})
+            dates_difference = end_ts_obj - start_ts_obj
+            difference_days = dates_difference.days
+            max_days = calendar.monthrange(start_ts_obj.year,start_ts_obj.month)[1]
+
+            
+            if difference_days == 6:
+                result = self.get_week_data(data)
+                return result
+            if difference_days == max_days-1:
+                data["year"] = start_ts_obj.year
+                data["month"] = start_ts_obj.month
+                result = self.get_month_data(data)
+                return result
+            
             result = self.new_get_range_data(data)
             return result
             
