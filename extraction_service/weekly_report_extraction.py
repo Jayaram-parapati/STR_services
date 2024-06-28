@@ -341,6 +341,10 @@ class Weekly_extraction(connect_to_MongoDb):
                         record.update({"change_rate":change})   
                     else:record.update({"change":change})
                     if df_year_month.iloc[0, c] not in ["Current", "Run"]:
+                        sheet_timestamp = week_range[0]
+                        sheet_month = sheet_timestamp.strftime('%b')
+                        if df_year_month.iloc[0,c]=='Dec' and sheet_month=='Jan':
+                            saving_year = year - 1            
                         if type(timestamp) == datetime:
                             if timestamp.month == 12 and timestamp.day == 31:
                                 saving_year =  timestamp.year + 1  
