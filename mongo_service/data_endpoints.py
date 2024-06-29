@@ -811,7 +811,7 @@ class APIendpoints(connect_to_MongoDb):
             
             uploaded_timestamps = [doc["date_range"][0] for doc in monthly_documents]
             ts_from_months = [timestamp for doc in monthly_documents for timestamp in self.generate_timestamps(doc["date_range"][0], doc["date_range"][1])]
-            ts_to_search_in_weekly = [timestamp for doc in weekly_documents for timestamp in self.generate_timestamps(doc["date_range"][0], doc["date_range"][1]) if timestamp not in ts_from_months]
+            ts_to_search_in_weekly = [timestamp for doc in weekly_documents for timestamp in self.generate_timestamps(doc["date_range"][0], doc["date_range"][1]) if timestamp not in ts_from_months and timestamp.year==year]
 
             # uploaded_timestamps.extend([doc["date_range"][1] for doc in weekly_documents])
             
