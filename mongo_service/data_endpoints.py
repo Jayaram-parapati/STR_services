@@ -763,6 +763,14 @@ class APIendpoints(connect_to_MongoDb):
                 "error":str(err)
             }
             return result 
+    
+    def generate_timestamps(self,start_date, end_date):
+        timestamps = []
+        current_date = start_date
+        while current_date <= end_date:
+            timestamps.append(current_date)
+            current_date += timedelta(days=1)
+        return timestamps
         
     def new_get_monthly_data(self,data):
         try:
@@ -802,7 +810,10 @@ class APIendpoints(connect_to_MongoDb):
             weekly_str_id_objIds = [doc["extraction_report_id"] for doc in weekly_documents]
             
             uploaded_timestamps = [doc["date_range"][0] for doc in monthly_documents]
-            uploaded_timestamps.extend([doc["date_range"][1] for doc in weekly_documents])
+            ts_from_months = [timestamp for doc in monthly_documents for timestamp in self.generate_timestamps(doc["date_range"][0], doc["date_range"][1])]
+            ts_to_search_in_weekly = [timestamp for doc in weekly_documents for timestamp in self.generate_timestamps(doc["date_range"][0], doc["date_range"][1]) if timestamp not in ts_from_months]
+
+            # uploaded_timestamps.extend([doc["date_range"][1] for doc in weekly_documents])
             
             if len(weekly_documents)==0 and len(monthly_documents)==0:
                 raise HTTPException(status_code=400,
@@ -836,7 +847,7 @@ class APIendpoints(connect_to_MongoDb):
                 missing_dates_from_monthly = [date for date in uploaded_timestamps if not date in found_dates]
                 matched_ids = [obj['_id'] for obj in matched_objs]
                 weekly_pipeline = [
-                    {"$match":{"timestamp":{"$in": missing_dates_from_monthly},"metadata.str_id": {"$in": weekly_str_id_objIds},"tag_type":{"$eq":"Current Week"}}},
+                    {"$match":{"timestamp":{"$in": ts_to_search_in_weekly},"metadata.str_id": {"$in": weekly_str_id_objIds},"tag_type":{"$eq":"Current Week"}}},
                     {"$unionWith": {
                                                 "coll": weekly_collection_name + "_ss",
                                                 "pipeline": [{"$match":{"timestamp":{"$in":missing_dates_from_monthly},"metadata.str_id": {"$in": weekly_str_id_objIds},"tag_type":{"$eq":"Current Week"},"metadata.label":{"$ne":"Index"}}}]
@@ -943,6 +954,7 @@ class APIendpoints(connect_to_MongoDb):
                 ]
                 
                 if viewby is None:
+                    weekly_pipeline[0]["$match"].update({"tag_type":{"$exists":False}})
                     weekly_pipeline.pop(1)
                     weekly_pipeline[1]["$group"].pop("avg_change_rate")
                     weekly_pipeline[2]["$project"].pop("change_rate")
