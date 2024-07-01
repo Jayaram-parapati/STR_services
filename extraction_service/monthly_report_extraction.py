@@ -29,14 +29,12 @@ weekdays = [
 
 
 config = {
-    "required_sheets": [0,3,6],
+    "required_sheets": ["Table of Contents","Comp","Daily by Month"],
     "meta_rows": {
-        3: [range(4)],
-        # 4: [range(4)],
-        6: [range(4)],
-        # 8: [range(4)],
+        "Comp": [range(4)],
+        "Daily by Month": [range(4)]
     },
-    "split_dfs": {3: True,6: True},
+    "split_dfs": {"Comp": True,"Daily by Month": True},
     "save_to_db": True,
 }
 
@@ -69,13 +67,13 @@ class Monthly_extraction(connect_to_MongoDb):
         # meta_rows = [list() for x in sheets]
         for index, sheet in enumerate(sheets):
             
-            if index not in config["required_sheets"]:
+            if sheet not in config["required_sheets"]:
                 continue
 
             df = xl.parse(sheet, header=None)
             if config["meta_rows"] != None:
-                if index in config["meta_rows"].keys():
-                    for rows in config["meta_rows"][index]:
+                if sheet in config["meta_rows"].keys():
+                    for rows in config["meta_rows"][sheet]:
                         # meta_rows[index].append(df.iloc[rows])
                         dfs.append(
                             {"sheet": f"meta-{sheet}", "index": index, "df": df.iloc[rows]}
@@ -89,7 +87,7 @@ class Monthly_extraction(connect_to_MongoDb):
             df.columns = range(df.columns.size)
             
 
-            if index in config["split_dfs"].keys():
+            if sheet in config["split_dfs"].keys():
                 df["nancnt"] = df.isnull().sum(axis=1)
                 
                 maxcnt = max(df["nancnt"])
@@ -323,11 +321,13 @@ class Monthly_extraction(connect_to_MongoDb):
     def prepare_all_dfs_monthly(self,sheets,xl):
         dfs = self.prepare_dfs(sheets,xl)
         try:
-            for index, dfo in enumerate(dfs):
-                # print(dfo["sheet"])
+            for dfo in dfs:
                 if dfo["sheet"] == "Table of Contents":
                     str_id = self.prepare_toc_sheet(dfo)
-              
+                    break
+                
+            for index, dfo in enumerate(dfs):
+                # print(dfo["sheet"])
                 if dfo["sheet"] == "Comp":
                     self.prepare_comp_sheet(dfo, str_id)
                 if dfo["sheet"] == "Daily by Month":

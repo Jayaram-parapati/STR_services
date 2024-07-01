@@ -48,8 +48,11 @@ class str_report_type(connect_to_MongoDb):
         return strinfo
 
     def check_str_report_type(self,sheets,xl):
-        sheet = sheets[0]
-        df = xl.parse(sheet, header=None)
+        # sheet = sheets[0]
+        for sheet in sheets:
+            if sheet == 'Table of Contents':
+                df = xl.parse(sheet, header=None)
+                break
 
         try:
             str_info = self.prepare_toc_sheet(df)
