@@ -286,6 +286,24 @@ class APIendpoints(connect_to_MongoDb):
                 "error":str(err)
             }
             return result 
+    
+    def fillMissingWeeklyData(self,result):
+        
+        all_dates = set()
+        for obj in result:
+            all_dates.add(obj['timestamp'])
+        for date in all_dates:
+            week_start_date = date-timedelta(days=6)
+            objs = [obj for obj in result if obj['timestamp'] == date]
+            if not any ([obj for obj in objs if obj['metadata']['label'] == 'Your rank']):
+                result.append({
+                        'timestamp': date,
+                        'metadata':{'label': 'Your rank'},
+                        'change': None,
+                        'week_range':[week_start_date,date]
+                    })  
+                
+        return result
         
     def new_get_weekly_data(self,data):
         try:
@@ -419,8 +437,10 @@ class APIendpoints(connect_to_MongoDb):
                                 "data":list(self.db[collection_name].aggregate(pipeline))
                                 })
                     return res
-                
-                result.update({collection_name:list(self.db[collection_name].aggregate(pipeline))})
+                single_res = list(self.db[collection_name].aggregate(pipeline))
+                if any(obj for obj in single_res if obj['metadata']['label'] == 'Your rank'):
+                    single_res = self.fillMissingWeeklyData(single_res)
+                result.update({collection_name:single_res})
             # print(result)
             return result
          
@@ -1629,8 +1649,11 @@ class APIendpoints(connect_to_MongoDb):
                             pipeline[5]["$project"]["timestamp"].update({"$dateFromParts":{"year": "$_id.year","month":1,"day":1}})
               
                 result.update({collection_name:list(self.db[collection_name].aggregate(pipeline))})
+            if not any(result[key] for key in ['adr','occupancy','revpar']):
+                raise HTTPException(status_code=400,
+                                    detail="No data found")   
             return result
-         
+
         except HTTPException as err:
             result = {
                 "status_code":400
