@@ -351,8 +351,10 @@ class APIendpoints(connect_to_MongoDb):
             for collection_name in coll_names:
                 matched_objs_query = {"timestamp":{"$in":all_dates},"metadata.str_id": {"$in": weekly_str_id_objIds},"tag_type":{"$eq":"Current Week"}}
                 matched_objs = list(self.db[collection_name].find(matched_objs_query))
-                found_dates = [obj["timestamp"] for obj in matched_objs]
-                missing_dates_from_weekly = [date for date in all_dates if not date in found_dates]
+                # found_dates = [obj["timestamp"] for obj in matched_objs]
+                ts_from_weeks = [timestamp for doc in weekly_documents for timestamp in self.generate_timestamps(doc["date_range"][0], doc["date_range"][1]) if timestamp in all_dates]
+
+                missing_dates_from_weekly = [date for date in all_dates if not date in ts_from_weeks]
                 matched_ids = [obj['_id'] for obj in matched_objs]
                 monthly_pipeline = [
                     {"$match":{"metadata.str_id":{"$in":monthly_str_id_objIds},"timestamp":{"$in":missing_dates_from_weekly}}},
@@ -370,13 +372,13 @@ class APIendpoints(connect_to_MongoDb):
                         "$project": {
                             "_id": 0,
                             "timestamp": {
-                                "$dateFromParts": {"isoWeekYear": "$_id.year","isoWeek": "$_id.week","isoDayOfWeek": 6}
+                                "$dateFromParts": {"isoWeekYear": "$_id.year","isoWeek": {"$add": ["$_id.week", 1]},"isoDayOfWeek": 6}
                             },
                             "metadata.label": "$_id.label",
                             "change": "$avg_change",
                             "week_range": [
-                                            {"$dateFromParts": {"isoWeekYear": "$_id.year","isoWeek": "$_id.week","isoDayOfWeek": 0}},
-                                            {"$dateFromParts": {"isoWeekYear": "$_id.year","isoWeek": "$_id.week","isoDayOfWeek": 6}},  
+                                            {"$dateFromParts": {"isoWeekYear": "$_id.year","isoWeek": "$_id.week","isoDayOfWeek": 7}},
+                                            {"$dateFromParts": {"isoWeekYear": "$_id.year","isoWeek": {"$add": ["$_id.week", 1]},"isoDayOfWeek": 6}},  
                                         ]  
                         }
                     },
