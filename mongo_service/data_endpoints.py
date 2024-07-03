@@ -2647,14 +2647,19 @@ class APIendpoints(connect_to_MongoDb):
             
             if difference_days == 6:
                 result = self.get_week_data(data)
+                if result['status_code'] != 400 :
+                    return result
+                    
             if difference_days == max_days-1:
                 data["year"] = start_ts_obj.year
                 data["month"] = start_ts_obj.month
                 result = self.get_month_data(data)
-            if result['status_code'] == 400 :
-                result = self.new_get_range_data(data)
-            return result
-            
+                if result['status_code'] != 400 :
+                    return result
+                
+            result = self.new_get_range_data(data)
+            return result        
+      
         except HTTPException as err:
             result = {
                 "status_code":400
