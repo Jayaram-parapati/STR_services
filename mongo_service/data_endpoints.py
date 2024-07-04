@@ -390,13 +390,13 @@ class APIendpoints(connect_to_MongoDb):
                         "$project": {
                             "_id": 0,
                             "timestamp": {
-                                "$dateFromParts": {"isoWeekYear": "$_id.year","isoWeek": {"$add": ["$_id.week", 1]},"isoDayOfWeek": 6}
+                                "$dateFromParts": {"isoWeekYear": "$_id.year","isoWeek":"$_id.week","isoDayOfWeek": 6}
                             },
                             "metadata.label": "$_id.label",
                             "change": "$avg_change",
                             "week_range": [
-                                            {"$dateFromParts": {"isoWeekYear": "$_id.year","isoWeek": "$_id.week","isoDayOfWeek": 7}},
-                                            {"$dateFromParts": {"isoWeekYear": "$_id.year","isoWeek": {"$add": ["$_id.week", 1]},"isoDayOfWeek": 6}},  
+                                            {"$dateFromParts": {"isoWeekYear": "$_id.year","isoWeek": {"$subtract":["$_id.week",1]},"isoDayOfWeek": 7}},
+                                            {"$dateFromParts": {"isoWeekYear": "$_id.year","isoWeek":"$_id.week","isoDayOfWeek": 6}},  
                                         ]  
                         }
                     },
