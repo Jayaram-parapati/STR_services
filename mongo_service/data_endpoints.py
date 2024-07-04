@@ -436,6 +436,8 @@ class APIendpoints(connect_to_MongoDb):
                                 "sheet":collection,
                                 "data":list(self.db[collection_name].aggregate(pipeline))
                                 })
+                    if any(obj for obj in res['data'] if obj['metadata']['label'] == 'Your rank'):
+                        res["data"] = self.fillMissingWeeklyData(res["data"])
                     return res
                 single_res = list(self.db[collection_name].aggregate(pipeline))
                 if any(obj for obj in single_res if obj['metadata']['label'] == 'Your rank'):
