@@ -10,7 +10,7 @@ services:
     build:
       context: .
     ports:
-      - "80:80"
+      - "8009:80"
     links:
       - db
     networks:
