@@ -384,21 +384,53 @@ class APIendpoints(connect_to_MongoDb):
                                 "label": "$metadata.label",
                             },
                             "avg_change": {"$avg": "$change"},
+                            "first_TS":{"$first":"$timestamp"},
+                            "last_TS":{"$last":"$timestamp"},
+                        }
+                    },
+                    {
+                        "$addFields": {
+                            "dayOfWeekNumber_first": { "$dayOfWeek": "$first_TS" },
+                            "dayOfWeekNumber_last": { "$dayOfWeek": "$last_TS" }
+                        }
+                    },
+                    {
+                        "$addFields":{
+                            "saturday":{
+                                "$cond":{
+                                    "if":{"$eq":["$dayOfWeekNumber_last",7]},
+                                    "then":"$last_TS",
+                                    "else":{
+                                        "$cond":{
+                                            "if":{"$eq":["$dayOfWeekNumber_first",1]},
+                                            "then":{"$dateAdd":{
+                                                        "startDate":"$first_TS",
+                                                        "unit":"day",
+                                                        "amount":6
+                                                        }},
+                                            "else":None
+                                        }
+                                    }
+                                }
+                            }
                         }
                     },
                     {
                         "$project": {
                             "_id": 0,
-                            "timestamp": {
-                                "$dateFromParts": {"isoWeekYear": "$_id.year","isoWeek":"$_id.week","isoDayOfWeek": 13},
-                            },
-                            
+                            # "first_TS":"$first_TS",
+                            # "last_TS":"$last_TS",
+                            "timestamp":"$saturday",
                             "metadata.label": "$_id.label",
                             "change": "$avg_change",
-                            "week_range": [
-                                            {"$dateFromParts": {"isoWeekYear": "$_id.year","isoWeek": "$_id.week","isoDayOfWeek": 7}},
-                                            {"$dateFromParts": {"isoWeekYear": "$_id.year","isoWeek":"$_id.week","isoDayOfWeek": 13}},  
-                                        ]  
+                            "week_range":[
+                                {"$dateSubtract":{
+                                    "startDate":"$saturday",
+                                    "unit":"day",
+                                    "amount":6
+                                }},
+                                "$saturday"
+                            ]  
                            
                         }
                     },
