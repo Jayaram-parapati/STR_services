@@ -369,9 +369,7 @@ class APIendpoints(connect_to_MongoDb):
             for collection_name in coll_names:
                 matched_objs_query = {"timestamp":{"$in":all_dates},"metadata.str_id": {"$in": weekly_str_id_objIds},"tag_type":{"$eq":"Current Week"}}
                 matched_objs = list(self.db[collection_name].find(matched_objs_query))
-                # found_dates = [obj["timestamp"] for obj in matched_objs]
                 ts_from_weeks = [timestamp for doc in weekly_documents for timestamp in self.generate_timestamps(doc["date_range"][0], doc["date_range"][1]) if timestamp in all_dates]
-
                 missing_dates_from_weekly = [date for date in all_dates if not date in ts_from_weeks]
                 matched_ids = [obj['_id'] for obj in matched_objs]
                 monthly_pipeline = [
@@ -473,6 +471,21 @@ class APIendpoints(connect_to_MongoDb):
                     if any(obj for obj in res['data'] if obj['metadata']['label'] == 'Your rank'):
                         res["data"] = self.fillMissingWeeklyData(res["data"])
                     return res
+                
+                viewby = data.get('viewby')
+                if viewby:
+                    pipeline[1]['$project'].pop('change_rate')
+                    marketscale_stage = {"$unionWith": {
+                                                "coll": collection_name + "_ss",
+                                                "pipeline": [{"$match":{"timestamp":{"$in":all_dates},"metadata.str_id": {"$in": weekly_str_id_objIds},"tag_type":{"$eq":"Current Week"},"metadata.label":{"$ne":"Index"}}},
+                                                             {"$project":{"_id":0,"metadata.str_id":0,"tag_type":0}}]
+                                            }}
+                    pipeline.insert(2,marketscale_stage)
+                    monthly_pipeline[1]['$group']['avg_change_rate'] = {"$avg":"$change_rate"}
+                    monthly_pipeline[4]['$project']['change_rate'] = "$avg_change_rate"
+                    pipeline[5]['$group']['change_rate'] = {"$first":"$change_rate"}
+                    pipeline[6]['$project']['change_rate'] = '$change_rate'
+             
                 single_res = list(self.db[collection_name].aggregate(pipeline))
                 if any(obj for obj in single_res if obj['metadata']['label'] == 'Your rank'):
                     single_res = self.fillMissingWeeklyData(single_res)
@@ -869,7 +882,7 @@ class APIendpoints(connect_to_MongoDb):
             
             uploaded_timestamps = [doc["date_range"][0] for doc in monthly_documents]
             ts_from_months = [timestamp for doc in monthly_documents for timestamp in self.generate_timestamps(doc["date_range"][0], doc["date_range"][1])]
-            ts_to_search_in_weekly = [timestamp for doc in weekly_documents for timestamp in self.generate_timestamps(doc["date_range"][0], doc["date_range"][1]) if timestamp not in ts_from_months and timestamp.year==year]
+            ts_to_search_in_weekly = [timestamp for doc in weekly_documents for timestamp in self.generate_timestamps(doc["date_range"][0], doc["date_range"][1]) if timestamp not in ts_from_months and (start_ts_obj.year<=timestamp.year<=end_ts_obj.year)]
 
             # uploaded_timestamps.extend([doc["date_range"][1] for doc in weekly_documents])
             
@@ -908,7 +921,7 @@ class APIendpoints(connect_to_MongoDb):
                     {"$match":{"timestamp":{"$in": ts_to_search_in_weekly},"metadata.str_id": {"$in": weekly_str_id_objIds},"tag_type":{"$eq":"Current Week"}}},
                     {"$unionWith": {
                                                 "coll": weekly_collection_name + "_ss",
-                                                "pipeline": [{"$match":{"timestamp":{"$in":missing_dates_from_monthly},"metadata.str_id": {"$in": weekly_str_id_objIds},"tag_type":{"$eq":"Current Week"},"metadata.label":{"$ne":"Index"}}}]
+                                                "pipeline": [{"$match":{"timestamp":{"$in":ts_to_search_in_weekly},"metadata.str_id": {"$in": weekly_str_id_objIds},"tag_type":{"$eq":"Current Week"},"metadata.label":{"$ne":"Index"}}}]
                                             }},
                     {
                         "$group": {
@@ -1012,7 +1025,7 @@ class APIendpoints(connect_to_MongoDb):
                 ]
                 
                 if viewby is None:
-                    weekly_pipeline[0]["$match"].update({"tag_type":{"$exists":False}})
+                    # weekly_pipeline[0]["$match"].update({"tag_type":{"$exists":False}})
                     weekly_pipeline.pop(1)
                     weekly_pipeline[1]["$group"].pop("avg_change_rate")
                     weekly_pipeline[2]["$project"].pop("change_rate")
@@ -1070,6 +1083,13 @@ class APIendpoints(connect_to_MongoDb):
             end_query_date = f"{current_year} 12 31"
             end_ts_obj = datetime.strptime(end_query_date,"%Y %m %d")
             
+            start_ts = data.get("start_obj_from_report",None)
+            end_ts = data.get("end_obj_from_report",None)
+            if start_ts and end_ts:
+                start_ts_obj = datetime.strptime(f"{start_ts.year} {start_ts.month} 01","%Y %m %d") 
+                max_days = calendar.monthrange(end_ts.year,end_ts.month)[1]
+                end_ts_obj = datetime.strptime(f"{end_ts.year} {end_ts.month} {max_days}","%Y %m %d")
+            
             obj_id_query = {
                 "corporation_id":corp_id,
                 "date_range":{"$elemMatch": {"$gte": start_ts_obj,"$lte": end_ts_obj}},
@@ -1085,7 +1105,9 @@ class APIendpoints(connect_to_MongoDb):
             weekly_str_id_objIds = [doc["extraction_report_id"] for doc in weekly_documents]
             
             uploaded_timestamps = [doc["date_range"][0] for doc in monthly_documents]
-            uploaded_timestamps.extend([doc["date_range"][1] for doc in weekly_documents])
+            ts_from_months = [timestamp for doc in monthly_documents for timestamp in self.generate_timestamps(doc["date_range"][0], doc["date_range"][1])]
+            ts_to_search_in_weekly = [timestamp for doc in weekly_documents for timestamp in self.generate_timestamps(doc["date_range"][0], doc["date_range"][1]) if timestamp not in ts_from_months and (start_ts_obj.year<=timestamp.year<=end_ts_obj.year)]
+            
             
             if len(weekly_documents)==0 and len(monthly_documents)==0:
                 raise HTTPException(status_code=400,
@@ -1116,7 +1138,7 @@ class APIendpoints(connect_to_MongoDb):
                 missing_dates_from_monthly = [date for date in uploaded_timestamps if not date in found_dates]
                 matched_ids = [obj['_id'] for obj in matched_objs]
                 weekly_pipeline = [
-                    {"$match":{"timestamp":{"$in": missing_dates_from_monthly},"metadata.str_id": {"$in": weekly_str_id_objIds},"tag_type":{"$eq":"Current Week"}}},
+                    {"$match":{"timestamp":{"$in": ts_to_search_in_weekly},"metadata.str_id": {"$in": weekly_str_id_objIds},"tag_type":{"$eq":"Current Week"}}},
                     {
                         "$group": {
                             "_id": {
@@ -1245,7 +1267,45 @@ class APIendpoints(connect_to_MongoDb):
                                 "data":list(self.db[collection_name].aggregate(pipeline)),
                                 })
                     return res    
-       
+                viewby = data.get('viewBy')
+                if viewby:
+                    marketscale_stage = {"$unionWith": {
+                                                "coll": weekly_collection_name + "_ss",
+                                                "pipeline": [{"$match":{"timestamp":{"$in":ts_to_search_in_weekly},"metadata.str_id": {"$in": weekly_str_id_objIds},"tag_type":{"$eq":"Current Week"},"metadata.label":{"$ne":"Index"}}},
+                                                             {"$project":{"_id":0,"metadata.str_id":0,"tag_type":0}}]
+                                            }}
+                    weekly_pipeline.insert(1,marketscale_stage)
+                    groupstage_query ={
+                            "avg_change_rate":{
+                                "$avg":{
+                                    "$cond": {
+                                        "if": { "$ne": ["$metadata.label", "Your rank"] },
+                                        "then":{
+                                            "$cond":{
+                                                "if": { "$eq": ["$change_rate", "null"] },
+                                                "then": 0,
+                                                "else": { "$toDouble": "$change_rate" }
+                                                }},
+                                        "else": {
+                                            "$cond": {
+                                                "if": { "$eq": [{ "$arrayElemAt": [{ "$split": ["$change_rate", " of "] }, 0] }, "null"] },
+                                                "then": 0,
+                                                "else": { "$toInt": { "$arrayElemAt": [{ "$split": ["$change_rate", " of "] }, 0] } }
+                                            }
+                                        }
+                                    }}}}
+                    weekly_pipeline[2]["$group"].update(groupstage_query)
+                    projectstage_query={"change_rate":{
+                                "$cond":{
+                                    "if":{"$ne":["$_id.label","Your rank"]},
+                                    "then":"$avg_change_rate",
+                                    "else":{"$concat":[{"$toString":{"$round":"$avg_change_rate"}}," of ",{"$toString":{"$round":"$denominator"}}]}}}}   
+                    weekly_pipeline[3]["$project"].update(projectstage_query)
+                    pipeline[4]['$group'].update(groupstage_query)
+                    pipeline[5]['$project'].update(projectstage_query)
+                    pipeline[5]['$project'].pop('year')
+                    pipeline[5]['$project'].update({"timestamp":{"$dateFromParts": {"year": "$_id.year"}}})
+                
                 result.update({weekly_collection_name:list(self.db[collection_name].aggregate(pipeline))})
             # print(result)
             return result
@@ -2568,7 +2628,10 @@ class APIendpoints(connect_to_MongoDb):
             }
             for sheet in sheets:
                 sheet_dict = data[sheet]
-                dicttt = {(res["timestamp"],res["label"]):res for res in sheet_dict}
+                if type == 'Week':
+                    dicttt = {(res['week_range'][0],res["metadata"]["label"]):res for res in sheet_dict}
+                else:dicttt = {(res["timestamp"],res["label"]):res for res in sheet_dict}
+    
                 sheet_result = []
                 labels = ["My Property","Comp Set","Your rank"]
                 labels.append(index_dict[sheet])
@@ -2578,12 +2641,24 @@ class APIendpoints(connect_to_MongoDb):
                         if (date,label) in dicttt:
                             sheet_result.append(dicttt[(date,label)])
                         else:
-                            sheet_result.append({
-                                "timestamp":date,
-                                "label":label,
+                            if type=='Week':
+                                week_start_date = date
+                                week_end_date = date
+                                week_end_date+=timedelta(days=6)
+                                sheet_result.append({
+                                "timestamp":week_end_date,
+                                "metadata":{"label":label},
                                 "change":None,
-                                "change_rate":None
+                                "change_rate":None,
+                                "week_range":[week_start_date,week_end_date]
                             })
+                            else:
+                                sheet_result.append({
+                                    "timestamp":date,
+                                    "label":label,
+                                    "change":None,
+                                    "change_rate":None
+                                })
                 data[sheet] = (sheet_result)
             return data    
     
@@ -2608,7 +2683,7 @@ class APIendpoints(connect_to_MongoDb):
             end_ts_obj = datetime.strptime(end_query_date,"%Y-%m-%d")
             
             today = datetime.today()
-            if start_ts_obj >= today or end_ts_obj >= today:
+            if start_ts_obj >= today:
                 raise HTTPException(status_code=400,detail="searching dates are invalid")
             
             
@@ -2616,7 +2691,18 @@ class APIendpoints(connect_to_MongoDb):
             difference_days = dates_difference.days
             max_days = calendar.monthrange(start_ts_obj.year,start_ts_obj.month)[1]
 
-            if viewby=='Day' or viewby=='Week':
+            if viewby=='Week':
+                weekdata = {}
+                weekdata['corporation_id'] = corp_id
+                weekdata['profit_center_id'] = pc_id
+                weekdata['week_start_date'] = start_query_date
+                weekdata['week_end_date'] = end_query_date
+                weekdata['viewby'] = viewby
+                result = self.new_get_weekly_data(weekdata)
+                response = self.fillMissingReportData(result,start_ts_obj,end_ts_obj,viewby)
+                return response
+            
+            if viewby=='Day':
                 result = self.new_get_range_data(data)
                 response = self.fillMissingReportData(result,start_ts_obj,end_ts_obj,viewby)
                 return response
@@ -2633,7 +2719,7 @@ class APIendpoints(connect_to_MongoDb):
                 data["start_obj_from_report"]=start_ts_obj 
                 data["end_obj_from_report"]=end_ts_obj
                 data["years_selected"]=2 
-                result = self.new_get_range_data(data)
+                result = self.new_get_yearly_data(data)
                 response = self.fillMissingReportData(result,start_ts_obj,end_ts_obj,viewby)
                 return response
                 
