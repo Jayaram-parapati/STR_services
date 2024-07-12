@@ -868,8 +868,8 @@ class APIendpoints(connect_to_MongoDb):
                 end_ts_obj = datetime.strptime(f"{end_ts.year} {end_ts.month} {max_days}","%Y %m %d")
                 
                 all_dates = []
-                current_date = start_ts_obj
-                while current_date <= end_ts_obj:
+                current_date = start_ts
+                while current_date <= end_ts:
                     all_dates.append(current_date)
                     current_date += timedelta(days=1)
                 
