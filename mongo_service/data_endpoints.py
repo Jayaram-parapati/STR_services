@@ -891,6 +891,8 @@ class APIendpoints(connect_to_MongoDb):
             ts_to_search_in_weekly = [timestamp for doc in weekly_documents for timestamp in self.generate_timestamps(doc["date_range"][0], doc["date_range"][1]) if timestamp not in ts_from_months and (start_ts_obj.year<=timestamp.year<=end_ts_obj.year)]
 
             if start_ts and end_ts:
+                uploaded_timestamps = [doc["date_range"][0] for doc in monthly_documents if doc["date_range"][0] in all_dates]
+                ts_from_months = [timestamp for doc in monthly_documents for timestamp in self.generate_timestamps(doc["date_range"][0], doc["date_range"][1]) if timestamp in all_dates]
                 ts_to_search_in_weekly = [timestamp for doc in weekly_documents for timestamp in self.generate_timestamps(doc["date_range"][0], doc["date_range"][1]) if timestamp not in ts_from_months and timestamp in all_dates]
                 
             
@@ -1097,6 +1099,12 @@ class APIendpoints(connect_to_MongoDb):
                 start_ts_obj = datetime.strptime(f"{start_ts.year} {start_ts.month} 01","%Y %m %d") 
                 max_days = calendar.monthrange(end_ts.year,end_ts.month)[1]
                 end_ts_obj = datetime.strptime(f"{end_ts.year} {end_ts.month} {max_days}","%Y %m %d")
+                
+                all_dates = []
+                current_date = start_ts
+                while current_date <= end_ts:
+                    all_dates.append(current_date)
+                    current_date += timedelta(days=1)
             
             obj_id_query = {
                 "corporation_id":corp_id,
@@ -1116,6 +1124,12 @@ class APIendpoints(connect_to_MongoDb):
             ts_from_months = [timestamp for doc in monthly_documents for timestamp in self.generate_timestamps(doc["date_range"][0], doc["date_range"][1])]
             ts_to_search_in_weekly = [timestamp for doc in weekly_documents for timestamp in self.generate_timestamps(doc["date_range"][0], doc["date_range"][1]) if timestamp not in ts_from_months and (start_ts_obj.year<=timestamp.year<=end_ts_obj.year)]
             
+            if start_ts and end_ts:
+                uploaded_timestamps = [doc["date_range"][0] for doc in monthly_documents if doc["date_range"][0] in all_dates]
+                ts_from_months = [timestamp for doc in monthly_documents for timestamp in self.generate_timestamps(doc["date_range"][0], doc["date_range"][1]) if timestamp in all_dates]
+                ts_to_search_in_weekly = [timestamp for doc in weekly_documents for timestamp in self.generate_timestamps(doc["date_range"][0], doc["date_range"][1]) if timestamp not in ts_from_months and timestamp in all_dates]
+
+                
             
             if len(weekly_documents)==0 and len(monthly_documents)==0:
                 raise HTTPException(status_code=400,
