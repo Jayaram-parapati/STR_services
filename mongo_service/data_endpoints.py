@@ -867,6 +867,12 @@ class APIendpoints(connect_to_MongoDb):
                 max_days = calendar.monthrange(end_ts.year,end_ts.month)[1]
                 end_ts_obj = datetime.strptime(f"{end_ts.year} {end_ts.month} {max_days}","%Y %m %d")
                 
+                all_dates = []
+                current_date = start_ts_obj
+                while current_date <= end_ts_obj:
+                    all_dates.append(current_date)
+                    current_date += timedelta(days=1)
+                
             obj_id_query = {
                 "corporation_id":corp_id,
                 "date_range":{"$elemMatch": {"$gte": start_ts_obj,"$lte": end_ts_obj}},
@@ -884,7 +890,9 @@ class APIendpoints(connect_to_MongoDb):
             ts_from_months = [timestamp for doc in monthly_documents for timestamp in self.generate_timestamps(doc["date_range"][0], doc["date_range"][1])]
             ts_to_search_in_weekly = [timestamp for doc in weekly_documents for timestamp in self.generate_timestamps(doc["date_range"][0], doc["date_range"][1]) if timestamp not in ts_from_months and (start_ts_obj.year<=timestamp.year<=end_ts_obj.year)]
 
-            # uploaded_timestamps.extend([doc["date_range"][1] for doc in weekly_documents])
+            if start_ts and end_ts:
+                ts_to_search_in_weekly = [timestamp for doc in weekly_documents for timestamp in self.generate_timestamps(doc["date_range"][0], doc["date_range"][1]) if timestamp not in ts_from_months and timestamp in all_dates]
+                
             
             if len(weekly_documents)==0 and len(monthly_documents)==0:
                 raise HTTPException(status_code=400,
