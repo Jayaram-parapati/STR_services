@@ -889,11 +889,26 @@ class APIendpoints(connect_to_MongoDb):
             uploaded_timestamps = [doc["date_range"][0] for doc in monthly_documents]
             ts_from_months = [timestamp for doc in monthly_documents for timestamp in self.generate_timestamps(doc["date_range"][0], doc["date_range"][1])]
             ts_to_search_in_weekly = [timestamp for doc in weekly_documents for timestamp in self.generate_timestamps(doc["date_range"][0], doc["date_range"][1]) if timestamp not in ts_from_months and (start_ts_obj.year<=timestamp.year<=end_ts_obj.year)]
-
+            ts_leftover_to_search_in_weekly = []
+            ts_leftover_to_search_in_monthly = []
             if start_ts and end_ts:
-                uploaded_timestamps = [doc["date_range"][0] for doc in monthly_documents if doc["date_range"][0] in all_dates]
-                ts_from_months = [timestamp for doc in monthly_documents for timestamp in self.generate_timestamps(doc["date_range"][0], doc["date_range"][1]) if timestamp in all_dates]
-                ts_to_search_in_weekly = [timestamp for doc in weekly_documents for timestamp in self.generate_timestamps(doc["date_range"][0], doc["date_range"][1]) if timestamp not in ts_from_months and timestamp in all_dates]
+                monthly_docs_to_consider = [doc for doc in monthly_documents if all(date in all_dates for date in doc["date_range"])]
+                uploaded_timestamps = [doc["date_range"][0] for doc in monthly_docs_to_consider]
+                ts_from_months = [timestamp for doc in monthly_docs_to_consider for timestamp in self.generate_timestamps(doc["date_range"][0], doc["date_range"][1])]
+                weekly_docs_to_consider = [doc for doc in weekly_documents if all(date in all_dates and date not in ts_from_months for date in doc["date_range"])]
+                ts_to_search_in_weekly = [doc["date_range"][1] for doc in weekly_docs_to_consider]
+                ts_from_weeks= [timestamp for doc in weekly_docs_to_consider for timestamp in self.generate_timestamps(doc["date_range"][0], doc["date_range"][1])]
+                
+                for date in all_dates:
+                    if date not in ts_from_months and date not in ts_from_weeks:
+                        if any (doc for doc in monthly_documents if doc["date_range"][0]<=date<=doc["date_range"][1]):
+                            ts_leftover_to_search_in_monthly.append(date)
+                        else:
+                            ts_leftover_to_search_in_weekly.append(date)    
+                        
+                    
+                
+                
                 
             
             if len(weekly_documents)==0 and len(monthly_documents)==0:
@@ -933,6 +948,23 @@ class APIendpoints(connect_to_MongoDb):
                                                 "coll": weekly_collection_name + "_ss",
                                                 "pipeline": [{"$match":{"timestamp":{"$in":ts_to_search_in_weekly},"metadata.str_id": {"$in": weekly_str_id_objIds},"tag_type":{"$eq":"Current Week"},"metadata.label":{"$ne":"Index"}}}]
                                             }},
+                    {"$unionWith": {
+                                                "coll": weekly_collection_name,
+                                                "pipeline": [{"$match":{"timestamp":{"$in":ts_leftover_to_search_in_weekly},"metadata.str_id": {"$in": weekly_str_id_objIds},"tag_type":{"$exists":False}}}]
+                                            }},
+                    {"$unionWith": {
+                                                "coll": weekly_collection_name + "_ss",
+                                                "pipeline": [{"$match":{"timestamp":{"$in":ts_leftover_to_search_in_weekly},"metadata.str_id": {"$in": weekly_str_id_objIds},"tag_type":{"$exists":False},"metadata.label":{"$ne":"Index"}}}]
+                                            }},
+                    {"$unionWith": {
+                                                "coll": weekly_collection_name + "_DailyByMonth",
+                                                "pipeline": [{"$match":{"timestamp":{"$in":ts_leftover_to_search_in_monthly},"metadata.str_id": {"$in": monthly_str_id_objIds}}}]
+                                            }},
+                    {"$set":{"metadata.label":{"$cond":{
+                        "if": { "$eq": ["$metadata.label", "Competitive Set"] },
+                        "then": "Comp Set",
+                        "else": "$metadata.label"
+                    }}}},
                     {
                         "$group": {
                             "_id": {
@@ -1036,7 +1068,8 @@ class APIendpoints(connect_to_MongoDb):
                 
                 if viewby is None:
                     # weekly_pipeline[0]["$match"].update({"tag_type":{"$exists":False}})
-                    weekly_pipeline.pop(1)
+                    # weekly_pipeline.pop(1)
+                    del weekly_pipeline[1:6]
                     weekly_pipeline[1]["$group"].pop("avg_change_rate")
                     weekly_pipeline[2]["$project"].pop("change_rate")
                     pipeline[4]["$group"].pop("unique_change_rate")
@@ -1124,11 +1157,26 @@ class APIendpoints(connect_to_MongoDb):
             ts_from_months = [timestamp for doc in monthly_documents for timestamp in self.generate_timestamps(doc["date_range"][0], doc["date_range"][1])]
             ts_to_search_in_weekly = [timestamp for doc in weekly_documents for timestamp in self.generate_timestamps(doc["date_range"][0], doc["date_range"][1]) if timestamp not in ts_from_months and (start_ts_obj.year<=timestamp.year<=end_ts_obj.year)]
             
+            # if start_ts and end_ts:
+            #     uploaded_timestamps = [doc["date_range"][0] for doc in monthly_documents if doc["date_range"][0] in all_dates]
+            #     ts_from_months = [timestamp for doc in monthly_documents for timestamp in self.generate_timestamps(doc["date_range"][0], doc["date_range"][1]) if timestamp in all_dates]
+            #     ts_to_search_in_weekly = [timestamp for doc in weekly_documents for timestamp in self.generate_timestamps(doc["date_range"][0], doc["date_range"][1]) if timestamp not in ts_from_months and timestamp in all_dates]
+            ts_leftover_to_search_in_weekly = []
+            ts_leftover_to_search_in_monthly = []
             if start_ts and end_ts:
-                uploaded_timestamps = [doc["date_range"][0] for doc in monthly_documents if doc["date_range"][0] in all_dates]
-                ts_from_months = [timestamp for doc in monthly_documents for timestamp in self.generate_timestamps(doc["date_range"][0], doc["date_range"][1]) if timestamp in all_dates]
-                ts_to_search_in_weekly = [timestamp for doc in weekly_documents for timestamp in self.generate_timestamps(doc["date_range"][0], doc["date_range"][1]) if timestamp not in ts_from_months and timestamp in all_dates]
-
+                monthly_docs_to_consider = [doc for doc in monthly_documents if all(date in all_dates for date in doc["date_range"])]
+                uploaded_timestamps = [doc["date_range"][0] for doc in monthly_docs_to_consider]
+                ts_from_months = [timestamp for doc in monthly_docs_to_consider for timestamp in self.generate_timestamps(doc["date_range"][0], doc["date_range"][1])]
+                weekly_docs_to_consider = [doc for doc in weekly_documents if all(date in all_dates and date not in ts_from_months for date in doc["date_range"])]
+                ts_to_search_in_weekly = [doc["date_range"][1] for doc in weekly_docs_to_consider]
+                ts_from_weeks= [timestamp for doc in weekly_docs_to_consider for timestamp in self.generate_timestamps(doc["date_range"][0], doc["date_range"][1])]
+                
+                for date in all_dates:
+                    if date not in ts_from_months and date not in ts_from_weeks:
+                        if any (doc for doc in monthly_documents if doc["date_range"][0]<=date<=doc["date_range"][1]):
+                            ts_leftover_to_search_in_monthly.append(date)
+                        else:
+                            ts_leftover_to_search_in_weekly.append(date)
                 
             
             if len(weekly_documents)==0 and len(monthly_documents)==0:
@@ -1327,6 +1375,26 @@ class APIendpoints(connect_to_MongoDb):
                     pipeline[5]['$project'].update(projectstage_query)
                     pipeline[5]['$project'].pop('year')
                     pipeline[5]['$project'].update({"timestamp":{"$dateFromParts": {"year": "$_id.year"}}})
+                    insert_pipeline = [
+                        {"$unionWith": {
+                                                "coll": weekly_collection_name,
+                                                "pipeline": [{"$match":{"timestamp":{"$in":ts_leftover_to_search_in_weekly},"metadata.str_id": {"$in": weekly_str_id_objIds},"tag_type":{"$exists":False}}}]
+                                            }},
+                    {"$unionWith": {
+                                                "coll": weekly_collection_name + "_ss",
+                                                "pipeline": [{"$match":{"timestamp":{"$in":ts_leftover_to_search_in_weekly},"metadata.str_id": {"$in": weekly_str_id_objIds},"tag_type":{"$exists":False},"metadata.label":{"$ne":"Index"}}}]
+                                            }},
+                    {"$unionWith": {
+                                                "coll": weekly_collection_name + "_DailyByMonth",
+                                                "pipeline": [{"$match":{"timestamp":{"$in":ts_leftover_to_search_in_monthly},"metadata.str_id": {"$in": monthly_str_id_objIds}}}]
+                                            }},
+                    {"$set":{"metadata.label":{"$cond":{
+                        "if": { "$eq": ["$metadata.label", "Competitive Set"] },
+                        "then": "Comp Set",
+                        "else": "$metadata.label"
+                    }}}},
+                    ]
+                    weekly_pipeline[2:2] = insert_pipeline
                 
                 result.update({weekly_collection_name:list(self.db[collection_name].aggregate(pipeline))})
             # print(result)
